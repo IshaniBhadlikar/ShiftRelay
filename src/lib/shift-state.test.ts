@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildBoard, deriveShiftState, type ClaimData, type DecisionData, type ShiftData } from './shift-state'
+import { buildBoard, deriveShiftState, isShiftTooLong, type ClaimData, type DecisionData, type ShiftData } from './shift-state'
 
 describe('deriveShiftState', () => {
   it('no claim → open', () => expect(deriveShiftState(false, undefined)).toBe('open'))
@@ -37,4 +37,11 @@ describe('buildBoard', () => {
       ['s4', 'open', undefined], // stale claim is not exposed
     ])
   })
+})
+
+describe('isShiftTooLong', () => {
+  const start = '2030-01-01T09:00:00.000Z'
+  it('exactly 24 h is allowed', () => expect(isShiftTooLong(start, '2030-01-02T09:00:00.000Z')).toBe(false))
+  it('24 h + 1 minute is too long', () => expect(isShiftTooLong(start, '2030-01-02T09:01:00.000Z')).toBe(true))
+  it('a normal 4 h shift is fine', () => expect(isShiftTooLong(start, '2030-01-01T13:00:00.000Z')).toBe(false))
 })

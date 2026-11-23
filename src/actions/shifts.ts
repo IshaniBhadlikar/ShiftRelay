@@ -1,6 +1,7 @@
 import type { ActionHandler } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import { fail, getMember, getShiftState, parseUtcIso } from './lib'
+import { isShiftTooLong, SHIFT_TOO_LONG } from '../lib/shift-state'
 
 const OPEN_SHIFT_CAP = 3
 
@@ -28,6 +29,7 @@ export const shiftActions: Record<string, ActionHandler<Env>> = {
     const endsAt = parseUtcIso(params.endsAt)
     if (!endsAt) return fail('endsAt must be an ISO date-time with a timezone.')
     if (endsAt <= startsAt) return fail('endsAt must be after startsAt.')
+    if (isShiftTooLong(startsAt, endsAt)) return fail(SHIFT_TOO_LONG)
     const now = new Date().toISOString()
     if (startsAt <= now) return fail('startsAt must be in the future.')
 

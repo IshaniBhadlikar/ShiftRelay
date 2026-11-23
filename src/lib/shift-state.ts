@@ -9,6 +9,12 @@
 export type ShiftState = 'open' | 'claimed' | 'covered'
 export type Outcome = 'approved' | 'rejected' | 'released'
 
+/** Longest allowed shift (inclusive). Shared by postShift and the post form. */
+export const MAX_SHIFT_HOURS = 24
+export const SHIFT_TOO_LONG = `A shift can be at most ${MAX_SHIFT_HOURS} hours long.`
+export const isShiftTooLong = (startsAt: string, endsAt: string) =>
+  Date.parse(endsAt) - Date.parse(startsAt) > MAX_SHIFT_HOURS * 60 * 60 * 1000
+
 /**
  * - no claim                        → open
  * - claim, no decision              → claimed

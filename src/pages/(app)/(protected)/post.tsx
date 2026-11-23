@@ -9,6 +9,7 @@ import { Button, Input, Label, Textarea, useToast } from '@/components/ui'
 import { ShiftSlip } from '@/components/ShiftSlip'
 import { useAction } from '@/lib/use-action'
 import { useTeam } from '@/lib/team'
+import { isShiftTooLong, SHIFT_TOO_LONG } from '@/lib/shift-state'
 
 const TITLE_MAX = 100
 const NOTES_MAX = 500
@@ -17,6 +18,15 @@ const NOTES_MAX = 500
 function toLocalInput(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** Tomorrow, at the next full local hour (e.g. 11:20 today → 12:00 tomorrow). */
+function defaultStart(now: Date = new Date()): Date {
+  const d = new Date(now)
+  d.setMinutes(0, 0, 0)
+  d.setHours(d.getHours() + 1)
+  d.setDate(d.getDate() + 1)
+  return d
 }
 
 /** A datetime-local value parses as LOCAL time; null if empty/invalid. */
@@ -38,6 +48,7 @@ function validate(title: string, start: string, end: string, notes: string): Err
   else if (startIso <= new Date().toISOString()) errors.start = 'The start time has to be in the future.'
   if (!endIso) errors.end = 'Pick when the shift ends.'
   else if (startIso && endIso <= startIso) errors.end = 'The end time has to be after the start.'
+  else if (startIso && isShiftTooLong(startIso, endIso)) errors.end = SHIFT_TOO_LONG
   if (notes.trim().length > NOTES_MAX) errors.notes = `Keep notes under ${NOTES_MAX} characters.`
   return errors
 }
@@ -49,8 +60,9 @@ export default function PostShiftPage() {
   const { busy, error, run } = useAction()
 
   const [title, setTitle] = useState('')
-  const [start, setStart] = useState('')
-  const [end, setEnd] = useState('')
+  // Valid defaults: tomorrow at the next full hour, ending 4 hours later.
+  const [start, setStart] = useState(() => toLocalInput(defaultStart()))
+  const [end, setEnd] = useState(() => toLocalInput(new Date(defaultStart().getTime() + 4 * 60 * 60 * 1000)))
   const [notes, setNotes] = useState('')
   const [submitted, setSubmitted] = useState(false)
 

@@ -89,12 +89,29 @@ test('postShift rejects bad times', async ({ users }) => {
     ['end before start', { startsAt: later(3), endsAt: later(2) }, /endsAt must be after startsAt/],
     ['end equals start', { startsAt: later(2), endsAt: later(2) }, /endsAt must be after startsAt/],
     ['start in the past', { startsAt: later(-1), endsAt: later(1) }, /startsAt must be in the future/],
+    ['longer than 24 hours', { startsAt: later(2), endsAt: later(26 + 1 / 60) }, /^A shift can be at most 24 hours long\.$/],
+    ['far longer than 24 hours', { startsAt: later(2), endsAt: later(2 + 72) }, /^A shift can be at most 24 hours long\.$/],
   ]
   for (const [label, times, message] of cases) {
     const res = await callAction(member.context.request, token, 'postShift', { title: 'Bad times', ...times })
     expect(res.success, label).toBe(false)
     expect(res.error, label).toMatch(message)
   }
+})
+
+test('postShift accepts a shift of exactly 24 hours', async ({ users }) => {
+  // Worker C, not Spike A: Spike A's open-shift cap is shared with many specs. Starts in 10s so it
+  // leaves the cap quickly.
+  const [poster] = await users(['Worker C'])
+  const token = await bearer(poster.context.request)
+  await callAction(poster.context.request, token, 'joinTeam')
+  const start = Date.now() + 10_000
+  const res = await callAction(poster.context.request, token, 'postShift', {
+    title: '__test__ 24h shift',
+    startsAt: new Date(start).toISOString(),
+    endsAt: new Date(start + 24 * HOUR).toISOString(),
+  })
+  expect(res.success).toBe(true)
 })
 
 test('non-member cannot post', async ({ users }) => {
