@@ -417,6 +417,13 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
   Each code verified against its entry before setting. `secrets list --config prd --only-names` → only
   `MANAGER_INVITES`; its value fingerprint matches the built value and differs from localtest's.
 
+### Nov 23 — deployed
+- `npx deepspace deploy` → release #2 `rel_01M84Y8X92VW608C88TY324X0K`, commit `e3a70d3`, live at
+  https://shiftrelay.app.space (rollback to #1 `rel_01M8350DJQXJ9W31NTBZ2WW7RM` available).
+- Checked from outside, signed out: landing serves the real title + headline in the static HTML;
+  /home → "Shift board"; /post, /activity, /queue, /settings → "Sign in to continue"; /nope → "Page not
+  found"; no page errors; /api/auth/ok 200. Signed-in flows, invites and demo seed: owner checklist (manual).
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
