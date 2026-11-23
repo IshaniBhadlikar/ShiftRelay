@@ -134,6 +134,47 @@ type in `worker.d.ts` ~L3529)
   worker log (the WebSocket test boots the record DO with the new schemas).
 - NOT yet verified: that a client write is actually refused. No UI write path exists; deferred to test 3 (authz).
 
+### Nov 22 — actions group 1: joinTeam + postShift
+**What I did**
+- `src/actions/lib.ts` (getVerifiedProfile — pasted taskspace code, getMember, parseUtcIso,
+  getShiftState, fail), `src/actions/team.ts` (joinTeam), `src/actions/shifts.ts` (postShift),
+  registered in `src/actions/index.ts`.
+- Schema change (approved): `team_members.role` gets `default: 'worker'`. joinTeam never sends `role`
+  — the default applies only on insert (SDK `worker.js` ~L1539) and upsert merges `{...existing, ...data}`
+  (~L1536), so a manager can't be downgraded, even by a concurrent joinTeam/redeemManagerInvite.
+- `tests/helpers/actions.ts` (bearer, tokenSubject, callAction) + `tests/team-and-shifts.spec.ts`.
+- New test account **"Outsider"** (`outsider-4cbb3b@deepspace.test`; `outsider@` was taken — test emails
+  are global). **Rule: Outsider must never call joinTeam or load the app UI** — local DO state persists
+  across runs, so one join would break the non-member tests permanently.
+
+**callerJwt is verified before the action runs** (same `Authorization: Bearer` header both times):
+- `src/server/action-routes.ts:46` — `resolveAuth(c.req.raw, c.env)`; 401 if null.
+- `src/server/http-routes.ts:40-43` — `resolveAuth` takes the Bearer token → `verifyJwt(jwtConfig(env), token)`.
+- `node_modules/deepspace/dist/worker.js:6362` — `verifyJwt` → `jwtVerify(token, publicKey, { issuer })`
+  (signature, issuer, exp); `userId = claims.sub` (L6385).
+- `src/server/action-routes.ts:53-54` — `callerJwt` sliced from the same header; L67 passes it with
+  `userId: auth.userId`. So decoded claims are verified and `sub === ctx.userId`.
+- Caveat: the guarantee lives in app-owned scaffold code; if `resolveAuth` ever accepts cookie sessions,
+  `callerJwt` could differ from the verified identity.
+
+**Assumptions**
+- Soft cap counts only open shifts that **haven't started** (a started shift can't be claimed; with no
+  cancel, past unclaimed shifts would otherwise block a poster forever).
+- Times must carry an explicit `Z`/`±hh:mm`; offset-less strings are rejected (worker would read them as UTC).
+- `getVerifiedProfile`'s email fallback (users row) is the stored value, so passing it to registerUser is a no-op.
+- displayName: JWT name → users-row name → email local part → "Team member"; truncated to 100.
+
+**Verified** — `npx deepspace test run tests/team-and-shifts.spec.ts`: 4 passed (run twice).
+- join idempotent (3 identical results, incl. spoofed `{role:'manager', userId:<Outsider>}`); Outsider
+  still refused afterwards → no row was written for them.
+- post: `+05:30` input stored as same instant in `Z`; spoofed `postedBy`/`posterName` ignored; title trimmed.
+- bad times: unparseable, no timezone, end<start, end=start, start in past — each its own message.
+- non-member can't post.
+- NOT tested yet: manager-not-downgraded (needs redeemManagerInvite), soft cap (P1).
+
+**You should verify**
+- Nothing committed yet — awaiting your review.
+
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
   (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
@@ -141,3 +182,4 @@ type in `worker.d.ts` ~L3529)
   Writes are unaffected: every write is an action that checks `team_members` itself.
 
 ## Later (out of scope)
+- postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
