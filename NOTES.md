@@ -215,9 +215,10 @@ type in `worker.d.ts` ~L3529)
   - Parallel run only: cascade to `You already have 3 open shifts.` for Spike A (capped claims leave the
     posted shifts open, and they count until they start).
 - Hypothesis confirmed by the numbers: fewer concurrent repeats (serial) → fewer cap hits (11 → 2).
-- **Proposed fix (not applied, needs your OK):** in this test only, start shifts at now+5s instead of
-  now+15s (claim follows the post within ~20 ms), and do repeat runs with `--workers=1`. No assertion
-  changes. Alternative: rotate claimers across more accounts.
+- **Fix applied (approved Nov 23):** `tests/claims.spec.ts` shifts start at now+5s (was now+15s); repeat
+  checks run with `--workers=1` (command in the spec header). No assertion changes.
+- **Result:** `--repeat-each=20 --workers=1` → **20/20 passed**; 20 successful claims on 20 distinct
+  shifts, 0 double wins, 0 cap errors. Full `tests/claims.spec.ts` via `deepspace test run`: 4/4 passed.
 
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
