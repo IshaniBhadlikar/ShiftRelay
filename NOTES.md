@@ -467,7 +467,15 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
   log user ids, not addresses.
 - E2E `tests/email.spec.ts` (5): claim → poster + Manager M, not claimant (spoofed claimantId ignored); approve
   and reject → exactly claimant + poster; release → exactly poster; double-claim and release-vs-approve races →
-  only the winner carries emails. Addresses match the accounts' real emails (server-side lookup).
+  only the winner carries emails, and each loser failed with the RACE error (not a soft cap). Addresses match
+  the accounts' real emails (server-side lookup).
+- First full run: 3 failures from soft caps ("limit of 5 claims per day" for Worker B, "3 open shifts" for
+  Worker C) — the new spec added B claims and C posts while other spec files ran in parallel. Fix (tests only):
+  Spike A does the email-spec claiming (it never claims elsewhere), posting split across Worker C / Manager M /
+  Worker B, shifts start in 3s. Result: `npm test` 43/43 Playwright + 31/31 unit, 0 cap hits.
+- Pre-existing (not from email): running the full suite twice BACK-TO-BACK fails `claims.spec` "two members claim
+  concurrently" on Worker B's claim cap — reproduced with email.spec excluded (run 1 38/38, run 2 1 failed). B's
+  claims from run 1 (e.g. the collab live shift starts in 30s) still count. A single run passes. See Later.
 
 **Verify on production (after deploy)**: one real email to your own address — who it comes from (docs vs
 catalog, below), delivery, and the link.
@@ -509,6 +517,8 @@ catalog, below), delivery, and the link.
 - README fallback: if demo shifts have passed, post your own shift from a second account.
 - DONE (Nov 23): Email (P1) skips demo-* recipients.
 - Email preferences / unsubscribe link; per-user opt-out (not built).
+- Tests: back-to-back full runs trip Worker B's 5-claims/day soft cap (claims.spec concurrent test). Options:
+  shorter start offsets in claims/decisions specs, or rotate claimants. Needs your OK (touches existing specs).
 - If the platform keeps ignoring `from`, recipients see "DeepSpace Apps" — consider the own-domain Resend route
   (RESEND_API_KEY secret) for a branded sender.
 - Test invite fixtures: suffix fixture invite ids per generation (e.g. `test-mgr-m-<rand>`) so regenerating them re-exercises the fresh-redemption path (fixed ids always hit the retry path once redeemed).

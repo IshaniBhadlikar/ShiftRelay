@@ -4,9 +4,14 @@
  * returns `data.emails` (what it would have sent). No real email, no credits.
  * Run: npx deepspace test run tests/email.spec.ts --secrets-config localtest
  *
- * Accounts (by name): "Worker C" posts (stays off Spike A's open-shift cap);
- * "Worker B" and "Spike A" claim; "Manager M" decides (real invite path).
- * Shifts start in 5s so they leave the post/claim caps quickly.
+ * Accounts (by name): Worker C / Manager M / Worker B post; Spike A does the
+ * claiming (plus Worker C in the race); Manager M decides (real invite path).
+ * Why this split: spec files run in parallel, and Worker B already claims in
+ * claims/decisions/collab while Spike A only posts there. Claiming as B here
+ * pushed B over the 5-claims/day soft cap (unstarted shifts) and broke OTHER
+ * specs, so B never claims in this file.
+ * Shifts start in 3s (the claim lands ms after the post), so each one leaves the
+ * caps quickly.
  */
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect, findTestAccountByName } from 'deepspace/testing'
@@ -38,7 +43,7 @@ const call = (a: Actor, name: string, params: object = {}) => callAction(a.reque
 async function post(poster: Actor, title: string): Promise<string> {
   const res = await call(poster, 'postShift', {
     title,
-    startsAt: new Date(Date.now() + 5_000).toISOString(),
+    startsAt: new Date(Date.now() + 3_000).toISOString(),
     endsAt: new Date(Date.now() + 2 * HOUR).toISOString(),
   })
   expect(res.success).toBe(true)
@@ -61,8 +66,8 @@ function checkEmails(emails: Email[], title: string, accounts: Actor[]) {
 }
 
 test('claim → poster and managers, never the claimant', async ({ users }) => {
-  const [c, b, m] = await users(['Worker C', 'Worker B', 'Manager M'])
-  const [poster, claimant, manager] = [await actor(c), await actor(b), await actor(m, true)]
+  const [c, a, m] = await users(['Worker C', 'Spike A', 'Manager M'])
+  const [poster, claimant, manager] = [await actor(c), await actor(a), await actor(m, true)]
   const title = `__test-${Date.now()}__ Email on claim`
   const shiftId = await post(poster, title)
 
@@ -74,13 +79,13 @@ test('claim → poster and managers, never the claimant', async ({ users }) => {
   expect(ids).toContain(manager.id) // every manager is included; others may exist locally
   expect(ids).not.toContain(claimant.id)
   checkEmails(emails, title, [poster, claimant, manager])
-  expect(emails.find((e) => e.toUserId === poster.id)!.text).toContain(`Worker B claimed your shift "${title}".`)
-  expect(emails.find((e) => e.toUserId === manager.id)!.text).toContain(`Worker B claimed Worker C's shift "${title}".`)
+  expect(emails.find((e) => e.toUserId === poster.id)!.text).toContain(`Spike A claimed your shift "${title}".`)
+  expect(emails.find((e) => e.toUserId === manager.id)!.text).toContain(`Spike A claimed Worker C's shift "${title}".`)
 })
 
 test('approve → claimant and poster, not the deciding manager', async ({ users }) => {
-  const [c, b, m] = await users(['Worker C', 'Worker B', 'Manager M'])
-  const [poster, claimant, manager] = [await actor(c), await actor(b), await actor(m, true)]
+  const [c, a, m] = await users(['Worker C', 'Spike A', 'Manager M'])
+  const [poster, claimant, manager] = [await actor(c), await actor(a), await actor(m, true)]
   const title = `__test-${Date.now()}__ Email on approve`
   const claimed = await call(claimant, 'claimShift', { shiftId: await post(poster, title) })
   expect(claimed.success).toBe(true)
@@ -109,8 +114,8 @@ test('reject → claimant and poster', async ({ users }) => {
 })
 
 test('release → poster only', async ({ users }) => {
-  const [c, b] = await users(['Worker C', 'Worker B'])
-  const [poster, claimant] = [await actor(c), await actor(b)]
+  const [m, a] = await users(['Manager M', 'Spike A'])
+  const [poster, claimant] = [await actor(m, true), await actor(a)]
   const title = `__test-${Date.now()}__ Email on release`
   const claimed = await call(claimant, 'claimShift', { shiftId: await post(poster, title) })
   expect(claimed.success).toBe(true)
@@ -120,23 +125,26 @@ test('release → poster only', async ({ users }) => {
   const emails: Email[] = res.data.emails
   expect(emails.map((e) => e.toUserId)).toEqual([poster.id])
   checkEmails(emails, title, [poster, claimant])
-  expect(emails[0].text).toContain(`Worker B released their claim on your shift "${title}".`)
+  expect(emails[0].text).toContain(`Spike A released their claim on your shift "${title}".`)
 })
 
 test('races: only the winning action emails', async ({ users }) => {
-  const [c, b, a, m] = await users(['Worker C', 'Worker B', 'Spike A', 'Manager M'])
-  const [poster, workerB, spikeA, manager] = [await actor(c), await actor(b), await actor(a), await actor(m, true)]
+  const [b, a, c, m] = await users(['Worker B', 'Spike A', 'Worker C', 'Manager M'])
+  // Poster must not be the deciding manager: an approving actor is (correctly) never emailed.
+  const [poster, spikeA, workerC, manager] = [await actor(b), await actor(a), await actor(c), await actor(m, true)]
 
   // Double claim: exactly one success, and only it carries emails.
   const shiftId = await post(poster, `__test-${Date.now()}__ Email claim race`)
-  const claims = await Promise.all([call(workerB, 'claimShift', { shiftId }), call(spikeA, 'claimShift', { shiftId })])
+  const claims = await Promise.all([call(spikeA, 'claimShift', { shiftId }), call(workerC, 'claimShift', { shiftId })])
   expect(claims.filter((r) => r.success)).toHaveLength(1)
   expect(claims.find((r) => r.success)!.data.emails.length).toBeGreaterThan(0)
+  // The loser must have lost the RACE (not been stopped by a soft cap), or this proves nothing.
+  expect(claims.find((r) => !r.success)!.error).toBe('Someone already claimed this shift.')
   expect(claims.find((r) => !r.success)!.data).toBeUndefined()
 
   // Release vs approve on the winning claim: exactly one decision, only it emails.
   const winner = claims.find((r) => r.success)!
-  const claimant = winner.data.claim.claimantId === workerB.id ? workerB : spikeA
+  const claimant = winner.data.claim.claimantId === spikeA.id ? spikeA : workerC
   const decisions = await Promise.all([
     call(claimant, 'releaseClaim', { claimId: winner.data.claimId }),
     call(manager, 'approveClaim', { claimId: winner.data.claimId }),
@@ -144,5 +152,6 @@ test('races: only the winning action emails', async ({ users }) => {
   expect(decisions.filter((r) => r.success)).toHaveLength(1)
   const won = decisions.find((r) => r.success)!
   expect(won.data.emails.map((e: Email) => e.toUserId)).toContain(poster.id)
+  expect(['This claim was already decided.', 'This claim no longer exists.']).toContain(decisions.find((r) => !r.success)!.error)
   expect(decisions.find((r) => !r.success)!.data).toBeUndefined()
 })
