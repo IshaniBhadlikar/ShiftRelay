@@ -337,6 +337,11 @@ type in `worker.d.ts` ~L3529)
 
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
+- Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
+  worked on first load (no "Couldn't join the team"); Claim and Release (with confirm dialog) work;
+  two tabs on the same account updated live without reloading. Asked for four polish tweaks (Claim
+  under the status badge, fixed-width time column, faded in-progress cards, wrapping dialog title) —
+  done in the next commit.
 
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role

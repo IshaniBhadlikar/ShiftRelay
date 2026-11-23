@@ -65,8 +65,9 @@ interface ModalHeaderProps {
 }
 
 function ModalHeader({ children, className = '' }: ModalHeaderProps): JSX.Element {
+  // pr-8 keeps the title clear of the absolutely-positioned close ✕.
   return (
-    <DHeader className={className}>
+    <DHeader className={cn('pr-8', className)}>
       {children}
     </DHeader>
   )
@@ -78,14 +79,16 @@ function ModalHeader({ children, className = '' }: ModalHeaderProps): JSX.Elemen
 
 interface ModalTitleProps {
   children: ReactNode
+  /** Wrap to at most two lines instead of truncating to one (for sentence titles). */
+  wrap?: boolean
   className?: string
 }
 
-function ModalTitle({ children, className = '' }: ModalTitleProps): JSX.Element {
+function ModalTitle({ children, className = '', wrap = false }: ModalTitleProps): JSX.Element {
   // min-w-0 + truncate: long unbroken strings (filenames, URLs) ellipsize
-  // instead of stretching the dialog.
+  // instead of stretching the dialog. `wrap` allows two lines instead.
   return (
-    <DTitle className={cn('min-w-0 truncate', className)}>
+    <DTitle className={cn('min-w-0', wrap ? 'line-clamp-2 break-words leading-snug' : 'truncate', className)}>
       {children}
     </DTitle>
   )
@@ -177,7 +180,7 @@ export function ConfirmModal({
   return (
     <Modal open={open} onClose={onClose} size="sm">
       <Modal.Header>
-        <Modal.Title>{title}</Modal.Title>
+        <Modal.Title wrap>{title}</Modal.Title>
         {description && <Modal.Description>{description}</Modal.Description>}
       </Modal.Header>
       <Modal.Footer>

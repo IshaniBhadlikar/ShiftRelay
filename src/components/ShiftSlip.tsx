@@ -43,8 +43,10 @@ export interface ShiftSlipProps {
   state: ShiftState
   claimantName?: string
   tags?: ReactNode
-  /** Right-aligned action row (buttons). */
+  /** Buttons, stacked under the state stamp. */
   actions?: ReactNode
+  /** Fade the slip (e.g. the shift is already in progress). */
+  dimmed?: boolean
   /** Rendered under the action row (e.g. a verbatim server error). */
   message?: ReactNode
   className?: string
@@ -63,6 +65,7 @@ export function ShiftSlip({
   tags,
   actions,
   message,
+  dimmed = false,
   className,
   ...rest
 }: ShiftSlipProps) {
@@ -71,30 +74,38 @@ export function ShiftSlip({
     <article
       {...rest}
       className={cn(
-        'flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground sm:flex-row',
+        'flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-opacity sm:flex-row',
+        dimmed && 'opacity-60',
         className,
       )}
     >
-      <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-border px-4 py-3 sm:w-44 sm:shrink-0 sm:flex-col sm:justify-start sm:gap-1 sm:border-b-0 sm:border-r">
-        <p className="font-mono text-[13px] font-medium tabular-nums text-foreground" data-testid="shift-time">
-          <span className="whitespace-nowrap">{startTime}</span>{' '}
-          <span className="whitespace-nowrap">– {endTime}</span>
+      {/* Fixed-width timecard column. From sm up, start and "– end" are always
+          their own lines, so every card breaks the same way. */}
+      <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-border px-4 py-3 sm:w-48 sm:shrink-0 sm:flex-col sm:justify-start sm:gap-1 sm:border-b-0 sm:border-r">
+        <p className="font-mono text-[13px] font-medium tabular-nums leading-5 text-foreground" data-testid="shift-time">
+          <span className="whitespace-nowrap sm:block">{startTime}</span>
+          <span className="sm:hidden"> </span>
+          <span className="whitespace-nowrap sm:block">– {endTime}</span>
         </p>
         <p className="font-mono text-xs tabular-nums text-muted-foreground">{formatDuration(startsAt, endsAt)}</p>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 px-4 py-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <h3 className="min-w-0 break-words text-[15px] font-semibold leading-snug" data-testid="shift-title">
-            {title}
-          </h3>
-          <StateStamp state={state} name={claimantName} />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-2">
+            <h3 className="break-words text-[15px] font-semibold leading-snug" data-testid="shift-title">
+              {title}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span data-testid="shift-poster">{posterLabel}</span>
+              {tags}
+            </div>
+            {notes && <p className="line-clamp-2 text-sm text-muted-foreground">{notes}</p>}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <StateStamp state={state} name={claimantName} />
+            {actions && <div className="flex flex-wrap justify-end gap-2">{actions}</div>}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <span data-testid="shift-poster">{posterLabel}</span>
-          {tags}
-        </div>
-        {notes && <p className="line-clamp-2 text-sm text-muted-foreground">{notes}</p>}
-        {actions && <div className="mt-1 flex flex-wrap justify-end gap-2">{actions}</div>}
         {message}
       </div>
     </article>

@@ -48,6 +48,7 @@ export function ShiftCard({ view, viewer, now }: { view: ShiftView; viewer: View
         endsAt={shift.endsAt}
         posterLabel={mine ? 'Posted by you' : `Posted by ${shift.posterName}`}
         notes={shift.notes}
+        dimmed={started}
         state={state}
         claimantName={claim?.data.claimantName}
         tags={
