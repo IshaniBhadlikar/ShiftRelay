@@ -100,4 +100,16 @@ type in `worker.d.ts` ~L3529)
 - Approve `tools.registerUser({})` at the top of `joinTeam`.
 - Spike code still uncommitted.
 
+### Nov 22 — spike code removed
+- Spike actions, schemas and test deleted; results kept above. Full spike code is retrievable at
+  commit `2d7e652` (`git show 2d7e652`). `src/actions/index.ts` and `src/schemas.ts` restored to scaffold.
+- ALLOW_DEBUG_ROUTES prod risk from the spikes is gone with this commit.
+- Test account `spike-a@deepspace.test` still exists in the local pool (reusable for real tests).
+
+**Decision (approved Nov 22) — joinTeam:**
+- First step: `tools.registerUser({ name, email })` with name/email taken ONLY from the verified JWT
+  profile (getVerifiedProfile pattern from the taskspace example, or decode `ctx.callerJwt` the same way).
+- Never pass `params`, `userId`, or `isAdmin` to registerUser.
+- `team_members.displayName` = that same verified name.
+
 ## Later (out of scope)
