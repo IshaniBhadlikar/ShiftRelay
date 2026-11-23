@@ -47,6 +47,9 @@ export interface ShiftSlipProps {
   actions?: ReactNode
   /** Fade the slip (e.g. the shift is already in progress). */
   dimmed?: boolean
+  /** Fixed display labels instead of formatting startsAt/endsAt in the viewer's
+   *  zone — for the prerendered landing, where build and browser zones differ. */
+  timeLabels?: { start: string; end: string; duration: string }
   /** Rendered under the action row (e.g. a verbatim server error). */
   message?: ReactNode
   className?: string
@@ -66,10 +69,12 @@ export function ShiftSlip({
   actions,
   message,
   dimmed = false,
+  timeLabels,
   className,
   ...rest
 }: ShiftSlipProps) {
-  const [startTime, endTime] = formatTimeParts(startsAt, endsAt)
+  const [startTime, endTime] = timeLabels ? [timeLabels.start, timeLabels.end] : formatTimeParts(startsAt, endsAt)
+  const duration = timeLabels ? timeLabels.duration : formatDuration(startsAt, endsAt)
   return (
     <article
       {...rest}
@@ -87,7 +92,7 @@ export function ShiftSlip({
           <span className="sm:hidden"> </span>
           <span className="whitespace-nowrap sm:block">– {endTime}</span>
         </p>
-        <p className="font-mono text-xs tabular-nums text-muted-foreground">{formatDuration(startsAt, endsAt)}</p>
+        <p className="font-mono text-xs tabular-nums text-muted-foreground">{duration}</p>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 px-4 py-3">
         <div className="flex items-start justify-between gap-3">

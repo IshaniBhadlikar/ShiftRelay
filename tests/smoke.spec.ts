@@ -26,6 +26,15 @@ test.describe('Smoke tests', () => {
     expect(errors).toEqual([])
   })
 
+  test('landing shows the ShiftRelay pitch, not template copy', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hand off a shift without the group chat.')
+    await expect(page.getByText('A DeepSpace app with a static front door')).toHaveCount(0)
+    await expect(page.getByText('placeholder page')).toHaveCount(0)
+    await expect(page).toHaveTitle(/ShiftRelay/)
+    await expect(page.getByRole('link', { name: 'Open the board' })).toHaveAttribute('href', '/home')
+  })
+
   test('landing carries one title, one description, one canonical', async ({ page }) => {
     // <Seo> (src/pages/index.tsx, values from src/seo.ts) hoists these into
     // <head>. Exactly one of each: index.html ships no static description or
