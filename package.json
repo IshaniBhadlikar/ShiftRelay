@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "deepspace dev start",
     "build": "vite build",
+    "check:bundle": "node scripts/check-bundle.mjs",
     "login": "deepspace auth login",
     "deploy": "deepspace deploy",
     "undeploy": "deepspace app undeploy",
