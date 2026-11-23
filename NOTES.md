@@ -385,17 +385,27 @@ type in `worker.d.ts` ~L3529)
   to see the queue as manager).
 - If you ever run specs with unnamed `users(n)` again, Outsider can be auto-joined — keep accounts named.
 
-### Nov 23 — /post, /activity, /queue 404 on the running dev server
-**Cause (found, no code change):** not the route scan — the server's log shows generouted rescanning 5 → 6 → 7 → 8
-routes as each page file was added, and the served route module listed all three pages. The routes reach the
-browser through Vite's pre-bundled `.vite/deps/@generouted_react-router_lazy.js?v=<hash>`, served with
-`Cache-Control: max-age=31536000, immutable`. The hash (`4903d0a0`) never changed after the checkpoint, so a
-browser that loaded the 5-route copy keeps using it on reload. A plain restart kept the same hash (8 routes).
-**Fix:** stopped the server, deleted `node_modules/.vite` (Vite's dep cache, regenerated on start), restarted →
-8 routes, new hash `ec13ccb5`. A fresh browser against :5173 reaches /post, /activity, /queue, /settings
-(sign-in panel) and only an unknown path 404s.
-**Also:** 404 page restyled — the "Go home" link uses the kit's `buttonVariants()` (theme radius, not a pill).
-**Verify:** reload /queue in your browser; if it still 404s, one hard reload (Cmd+Shift+R) drops the stale copy.
+### Nov 23 — /post, /activity, /queue 404 on the running dev server (DEV-ONLY, no code change)
+**Cause (confirmed: a private window showed /queue):** a stale cached route list in my browser. Not the route
+scan — the server log shows generouted rescanning 5 → 6 → 7 → 8 routes as the pages were added, and the server's
+route module listed all of them. The route list reaches the browser as Vite's pre-bundled
+`.vite/deps/@generouted_react-router_lazy.js?v=4903d0a0`, served `Cache-Control: max-age=31536000, immutable`;
+my browser cached the 5-route copy at the board checkpoint. `main.tsx` and page modules are `no-cache` (so the
+NEW 404 design showed up), but the route-list URL never changed, so it was never re-fetched.
+**Correction:** I first reported that deleting `node_modules/.vite` gave a new hash (`ec13ccb5`). That hash was
+transient during startup; Vite settled back on `4903d0a0` (derived from lockfile + config, which didn't change),
+so clearing the cache could NOT have helped a browser holding the old copy.
+**Fix:** a hard reload (Cmd+Shift+R) or a private window. Can't happen in production: built files have
+content-hashed names. Side note: each local test run regenerates `.dev.vars`, which restarts the dev server.
+**Also:** 404 page restyled — "Go home" uses the kit's `buttonVariants()` (theme radius, not a pill).
+
+### Nov 23 — post form defaults + 24h maximum
+- Post form defaults: tomorrow at the next full local hour, ending 4h later (valid without edits).
+- Shifts longer than 24h (exactly 24h is allowed) are rejected: one shared rule in `src/lib/shift-state.ts`
+  (`isShiftTooLong`, message "A shift can be at most 24 hours long.") used by `postShift` and the form.
+  Tests: unit (24h ok, 24h+1min and 4h cases) and API (`team-and-shifts.spec.ts`: two too-long cases in
+  "rejects bad times"; exactly-24h accepted, posted by Worker C to stay off Spike A's open-shift cap).
+- Form check verified by tsc + unit only — the API test covers the server message.
 
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
@@ -404,6 +414,9 @@ browser that loaded the 5-route copy keeps using it on reload. A plain restart k
   two tabs on the same account updated live without reloading. Asked for four polish tweaks (Claim
   under the status badge, fixed-width time column, faded in-progress cards, wrapping dialog title) —
   done in the next commit.
+- Nov 23 — Full click-through locally (owner, also a manager): approved the demo claim (board shows Covered);
+  checked all three post-form errors; posted a shift (shows "Posted by you"); checked My activity. /queue
+  worked in a private window (the normal-window 404 was the stale dev route-list cache above).
 
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
