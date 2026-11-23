@@ -376,6 +376,9 @@ type in `worker.d.ts` ~L3529)
 - Running the live test back-to-back 8 times hits Worker B's 5-claims/day soft cap (by design) — the test then
   fails with the server's own message ("You've reached the limit of 5 claims per day."), not a silent "Open".
 - `vite build`: prerender OK; dev-only names absent from worker and client bundles.
+- Screenshot review (temporary spec, not committed) caught: landing slips too narrow (title wrapped mid-word) →
+  `stacked` slip layout; My activity listed long-ended test claims tagged "In progress" → activity shows only
+  unfinished shifts (history is in Decisions) and past shifts get an "Ended" tag. Suite rerun: 37/37 + 10/10.
 
 **What you should verify**
 - Click through post → activity → queue → settings → landing on localhost (owner account; redeem a local invite
