@@ -3,9 +3,10 @@
  * Actions run with RBAC OFF — every check lives in the action itself.
  */
 import type { ActionResult, ActionTools } from 'deepspace/worker'
+import { deriveShiftState, type ShiftState } from '../lib/shift-state'
 
 export type Role = 'worker' | 'manager'
-export type ShiftState = 'open' | 'claimed' | 'covered'
+export type { ShiftState }
 type Envelope = { recordId: string; data: Record<string, unknown> }
 
 export const fail = (error: string): ActionResult => ({ success: false, error })
@@ -71,8 +72,8 @@ export function parseUtcIso(value: unknown): string | null {
 }
 
 /**
- * Derived shift state (CLAUDE.md): no claim → open; claim without decision →
- * claimed; approved → covered; rejected/released → open (stale claim).
+ * Derived shift state — the rule itself lives in src/lib/shift-state.ts
+ * (deriveShiftState), shared with the client. This only fetches the inputs.
  */
 export async function getShiftStatus(
   tools: ActionTools,
@@ -91,8 +92,8 @@ export async function getShiftStatus(
     limit: 1,
   })
   const outcome = decisions.success ? decisions.data.records[0]?.data.outcome : undefined
-  if (!outcome) return { state: 'claimed', claim }
-  return { state: outcome === 'approved' ? 'covered' : 'open', claim, decision: { outcome } }
+  const state = deriveShiftState(true, outcome)
+  return outcome ? { state, claim, decision: { outcome } } : { state, claim }
 }
 
 export async function getShiftState(tools: ActionTools, shiftId: string): Promise<ShiftState> {
