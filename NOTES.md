@@ -300,6 +300,41 @@ type in `worker.d.ts` ~L3529)
   are fixed (`test-mgr-m`), and Manager M already redeemed that id, so a regenerated code with the same id takes
   the retry path. Fix if wanted: suffix fixture ids per generation (e.g. `test-mgr-m-<rand>`).
 
+### Nov 23 — group 4b: seedDemo
+**What I did**
+- `src/actions/demo.ts`: `seedDemoData(tools, now)` + owner-only `seedDemo` (`ctx.userId === env.OWNER_USER_ID`).
+  Fixed ids: team_members `demo-coworker-1..3` ("Demo coworker · Alex/Sam/Priya", worker); shifts
+  `demo-shift-1..4` (notes "Demo data — safe to claim."); pending claim `demo-claim-1` (Sam on demo-shift-4).
+  Times UTC, base = next whole hour: +14d (4h), +15d (4h, pending claim), +18d (6h), +21d (8h).
+- Re-seed: for each demo shift id, `deleteWhere('decisions', {shiftId})` then `deleteWhere('claims', {shiftId})`,
+  then upsert members/shifts with fixed ids and re-create `demo-claim-1`. Deleting the demo decisions is what
+  lets the re-created `demo-claim-1` be decided again under `decisions.uniqueOn`. Reviewers' claims/decisions ON
+  demo shifts are removed too (demo state); nothing else is touched.
+- Owner trigger: owner-only "Demo data" section on Settings (rendered when `user.role === 'admin'`; server
+  enforces OWNER_USER_ID) → "Reset demo data" → `seedDemo`. New client helper `src/lib/actions.ts`.
+- Dev-only `devSeedDemo` (same `seedDemoData`, `devGuard`) for tests.
+
+**Why the owner path isn't automated**
+- Test accounts can't be the owner, and `APP_OWNER_JWT` (`scope: app:<id>`) is rejected by `verifyJwt`
+  (`worker.js:6371`) because the app's `jwtConfig` sets no `acceptScope` (`src/server/http-routes.ts:35-37`).
+  The owner-success line of `seedDemo` is checked manually (see Later).
+
+**Verified**
+- `tests/demo.spec.ts --secrets-config localtest`: **4/4** (non-owner worker+manager rejected; idempotent incl.
+  `removed {claims:1, decisions:0}` on the 2nd seed; member claims demo shift + manager approves demo-claim-1;
+  re-seed restores, demo-claim-1 approvable again, real shift/decision and real roles untouched).
+- Full suite `npx deepspace test run all --secrets-config localtest`: **35/35 Playwright + 3/3 unit**.
+- Build grep on `dist/shiftrelay/index.js` (first run): `devSeedDemo` was found once — a JSDoc comment in
+  demo.ts naming the dev-only action (the bundle keeps comments). Fix: reworded the comment; rule: production-
+  bundled files never name dev-only actions.
+- Build grep after the fix — FOUND: `\bseedDemo\b` 3, claimShift 1, redeemManagerInvite 3. ABSENT (strict
+  bare names): devSeedDemo 0, devShiftSnapshot 0, devPromoteSelfToManager 0. ABSENT (extra code patterns):
+  `devSeedDemo\s*:` 0, `devShiftSnapshot\s*:` 0, `devPromoteSelfToManager\s*:` 0, devGuard 0, devActions 0,
+  "Not available." 0.
+- Settings UI: tsc + lint only; not exercised (owner can't sign in to tests).
+- Claim-cap note: demo shifts start 14+ days out, so a test claim on demo-shift-1 counts toward that worker's
+  24h claim cap until a re-seed deletes it; test 4 ends with a re-seed.
+
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
   (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
@@ -307,6 +342,10 @@ type in `worker.d.ts` ~L3529)
   Writes are unaffected: every write is an action that checks `team_members` itself.
 
 ## Later (out of scope)
+- Before submission: owner clicks Settings → Reset demo data on the live site and checks the demo state.
+- Reset demo data right before submitting.
+- README fallback: if demo shifts have passed, post your own shift from a second account.
+- Email (P1): skip demo-* recipients.
 - Test invite fixtures: suffix fixture invite ids per generation (e.g. `test-mgr-m-<rand>`) so regenerating them re-exercises the fresh-redemption path (fixed ids always hit the retry path once redeemed).
 - Before submission, verify on the live site with a throwaway prd invite, then remove it.
 - Report to DeepSpace: the CLI's .dev.vars writer escapes quotes and dotenv keeps the backslashes, which breaks JSON secrets locally.

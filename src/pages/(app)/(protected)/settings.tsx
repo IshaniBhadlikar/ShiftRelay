@@ -3,8 +3,41 @@
  * because (protected)/_layout.tsx already wraps the subtree in <AuthGate>.
  */
 
+import { useState } from 'react'
 import { signOut, useUser } from 'deepspace'
 import { Button } from '@/components/ui'
+import { callAction } from '@/lib/actions'
+
+/**
+ * Owner-only. Visibility is cosmetic (platform `admin` is the app owner only —
+ * we never use setRole); the seedDemo action itself enforces OWNER_USER_ID.
+ */
+function DemoDataSection() {
+  const [status, setStatus] = useState<{ kind: 'idle' | 'busy' | 'ok' | 'error'; message?: string }>({ kind: 'idle' })
+
+  async function reset() {
+    setStatus({ kind: 'busy' })
+    const res = await callAction('seedDemo')
+    setStatus(res.success ? { kind: 'ok', message: 'Demo data ready.' } : { kind: 'error', message: res.error })
+  }
+
+  return (
+    <section className="mt-6 rounded-lg border border-border bg-card p-6" data-testid="demo-data-section">
+      <h2 className="mb-2 text-lg font-semibold">Demo data (owner only)</h2>
+      <p className="text-sm text-muted-foreground">
+        Restores the demo coworkers, their open shifts and one pending claim. Only demo data is changed.
+      </p>
+      <Button className="mt-4" onClick={reset} disabled={status.kind === 'busy'}>
+        {status.kind === 'busy' ? 'Resetting…' : 'Reset demo data'}
+      </Button>
+      {status.message && (
+        <p role="status" className={`mt-3 text-sm ${status.kind === 'error' ? 'text-destructive' : 'text-foreground'}`}>
+          {status.message}
+        </p>
+      )}
+    </section>
+  )
+}
 
 export default function SettingsPage() {
   const { user } = useUser()
@@ -35,6 +68,8 @@ export default function SettingsPage() {
             Sign out
           </Button>
         </section>
+
+        {user?.role === 'admin' && <DemoDataSection />}
       </div>
     </div>
   )

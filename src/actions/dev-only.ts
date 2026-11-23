@@ -14,6 +14,7 @@ import { isTestAccountEmail } from 'deepspace/worker'
 import type { ActionContext, ActionHandler, ActionResult } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import { fail, getMember, getShiftStatus, getVerifiedProfile } from './lib'
+import { seedDemoData } from './demo'
 
 async function devGuard({ userId, tools, env, callerJwt }: ActionContext<Env>): Promise<ActionResult | null> {
   if (!import.meta.env.DEV) return fail('Not available.')
@@ -24,6 +25,16 @@ async function devGuard({ userId, tools, env, callerJwt }: ActionContext<Env>): 
 }
 
 export const devActions: Record<string, ActionHandler<Env>> = {
+  /**
+   * Run the real seeding logic WITHOUT the owner check, for tests (the owner
+   * can't be a test account). seedDemo itself keeps its owner-only check.
+   */
+  devSeedDemo: async (ctx) => {
+    const denied = await devGuard(ctx)
+    if (denied) return denied
+    return seedDemoData(ctx.tools)
+  },
+
   /** Derived state + claim + all decisions for a shift (member-only). */
   devShiftSnapshot: async (ctx) => {
     const denied = await devGuard(ctx)
