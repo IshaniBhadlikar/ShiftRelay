@@ -16,3 +16,8 @@ src/modals.tsx
 
 # Local test invite codes (plaintext) — written by scripts/new-invite.mjs --test-fixtures
 tests/.invites.local.json
+
+# Local env files and Claude Code personal settings
+.env
+.env.*
+.claude/settings.local.json
