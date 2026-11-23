@@ -435,6 +435,17 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
   checked all three post-form errors; posted a shift (shows "Posted by you"); checked My activity. /queue
   worked in a private window (the normal-window 404 was the stale dev route-list cache above).
 
+## What I verified (production)
+- Nov 23 — On https://shiftrelay.app.space (release #2, commit e3a70d3), all by hand:
+  - Auto-join worked for a second real account.
+  - Owner invite (`inv-owner-d79a`) redeemed → manager; wrong inputs gave the generic error.
+  - Approved the demo claim on the Queue → board shows Covered.
+  - 24h limit: a shift longer than 24 hours is refused with the shared message.
+  - Live sync: a claim from the second account appeared in my owner window without a reload; Release (with the
+    confirm dialog) updated both windows.
+  - Reusing the owner code from the second account → "This invite has already been used."
+  - Reset demo data at the end, so reviewers find the pending demo claim.
+
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
   (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
