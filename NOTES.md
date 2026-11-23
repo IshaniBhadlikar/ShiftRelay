@@ -254,10 +254,17 @@ type in `worker.d.ts` ~L3529)
 
 **NOT tested**
 - claimShift's stale-cleanup branch (needs a decision whose claim delete failed — fault injection).
-- Approve winning the race (see above).
 
-**You should verify / decide**
-- Fix for the post-cap failures and the one-sided race — proposals in my report; nothing committed.
+**Test 6 fix (approved Nov 23, test-only — no production code changed)**
+- Poster/claimant rotate by repeat index: even → Spike A posts, Worker B claims; odd → Worker B posts,
+  Worker C claims.
+- One side gets a random 0–30 ms head-start delay, alternating by repeat index (even: release delayed;
+  odd: approve delayed). Each run logs `[race] repeat=… delayed=… jitter=… winner=…`.
+- Re-run `--grep concurrently --repeat-each=20 --workers=1`: **20/20 passed. Approve won 9, release won 11.**
+  Loser messages: approve → "This claim no longer exists." ×7 / "This claim was already decided." ×4;
+  release → "This claim was already decided." ×9. No post/claim cap errors. Full spec: 6/6 passed.
+- Observation: approve won every run where release was delayed (even with 5 ms jitter; lost only at 1 ms),
+  consistent with the "extra team_members read" hypothesis.
 
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role

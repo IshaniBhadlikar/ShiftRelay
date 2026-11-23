@@ -5,7 +5,7 @@
  *   npx playwright test -c tests/playwright.config.ts decisions.spec.ts \
  *     --grep concurrently --repeat-each=20 --workers=1
  *
- * Accounts (by name): "Spike A" posts; "Worker B"/"Worker C" are workers;
+ * Accounts (by name): "Spike A" posts (test 6 rotates poster with "Worker B"); "Worker B"/"Worker C" are workers;
  * "Manager M" is promoted via the DEV-ONLY devPromoteSelfToManager (not in the
  * production bundle — see src/actions/dev-only.ts). "Outsider" is not used.
  * Shifts start in 5s so they drop out of the post/claim caps quickly.
@@ -132,18 +132,30 @@ test("5. a manager approves another member's claim and the shift is covered", as
 })
 
 test('6. release and approve fired concurrently leave exactly one decision', async ({ users }, testInfo) => {
-  // Alternate claimant across repeats to stay well under the daily claim cap.
-  const claimantName = testInfo.repeatEachIndex % 2 === 0 ? 'Worker B' : 'Worker C'
-  const [a, w, m] = await users(['Spike A', claimantName, 'Manager M'])
-  const poster = await member(a.context.request)
+  // Rotate poster and claimant across repeats so no one nears the post/claim
+  // caps (a released shift reopens and counts toward its poster's open cap).
+  const even = testInfo.repeatEachIndex % 2 === 0
+  const [posterName, claimantName] = even ? ['Spike A', 'Worker B'] : ['Worker B', 'Worker C']
+  const [p, w, m] = await users([posterName, claimantName, 'Manager M'])
+  const poster = await member(p.context.request)
   const claimant = await member(w.context.request)
   const manager = await member(m.context.request, { manager: true })
   const { shiftId, claimId } = await postAndClaim(poster, claimant, 'Race release vs approve')
 
+  // Random 0–30 ms head start for one side, alternating by repeat index, so
+  // both orders actually occur (undelayed, release almost always wins because
+  // approve does an extra team_members read before its write).
+  const delayed = even ? 'release' : 'approve'
+  const jitterMs = Math.floor(Math.random() * 31)
+  const after = <T>(ms: number, fn: () => Promise<T>) => new Promise((r) => setTimeout(r, ms)).then(fn)
   const [release, approve] = await Promise.all([
-    call(claimant, 'releaseClaim', { claimId }),
-    call(manager, 'approveClaim', { claimId }),
+    after(delayed === 'release' ? jitterMs : 0, () => call(claimant, 'releaseClaim', { claimId })),
+    after(delayed === 'approve' ? jitterMs : 0, () => call(manager, 'approveClaim', { claimId })),
   ])
+  console.log(
+    `[race] repeat=${testInfo.repeatEachIndex} delayed=${delayed} jitter=${jitterMs}ms ` +
+      `winner=${release.success ? 'release' : approve.success ? 'approve' : 'none'}`,
+  )
   const winners = [release, approve].filter((r) => r.success)
   const losers = [release, approve].filter((r) => !r.success)
   expect(winners).toHaveLength(1)
