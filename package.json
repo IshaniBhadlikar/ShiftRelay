@@ -17,7 +17,7 @@
     "deploy": "deepspace deploy",
     "undeploy": "deepspace app undeploy",
     "add": "deepspace add",
-    "test": "deepspace test run --secrets-config localtest",
+    "test": "deepspace test run all --secrets-config localtest",
     "test:smoke": "deepspace test run smoke --secrets-config localtest",
     "test:api": "deepspace test run api --secrets-config localtest",
     "test:e2e": "deepspace test run e2e --secrets-config localtest",
