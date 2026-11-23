@@ -74,15 +74,27 @@ export function parseUtcIso(value: unknown): string | null {
  * Derived shift state (CLAUDE.md): no claim → open; claim without decision →
  * claimed; approved → covered; rejected/released → open (stale claim).
  */
-export async function getShiftState(tools: ActionTools, shiftId: string): Promise<ShiftState> {
-  const claims = await tools.query('claims', { where: { shiftId }, limit: 1 })
-  const claim = claims.success ? claims.data.records[0] : undefined
-  if (!claim) return 'open'
+export async function getShiftStatus(
+  tools: ActionTools,
+  shiftId: string,
+): Promise<{
+  state: ShiftState
+  claim?: { recordId: string; data: Record<string, unknown> }
+  decision?: { outcome: string }
+}> {
+  const claims = await tools.query<Record<string, unknown>>('claims', { where: { shiftId }, limit: 1 })
+  const row = claims.success ? claims.data.records[0] : undefined
+  if (!row) return { state: 'open' }
+  const claim = { recordId: row.recordId, data: row.data }
   const decisions = await tools.query<{ outcome?: string }>('decisions', {
     where: { claimId: claim.recordId },
     limit: 1,
   })
-  const decision = decisions.success ? decisions.data.records[0] : undefined
-  if (!decision) return 'claimed'
-  return decision.data.outcome === 'approved' ? 'covered' : 'open'
+  const outcome = decisions.success ? decisions.data.records[0]?.data.outcome : undefined
+  if (!outcome) return { state: 'claimed', claim }
+  return { state: outcome === 'approved' ? 'covered' : 'open', claim, decision: { outcome } }
+}
+
+export async function getShiftState(tools: ActionTools, shiftId: string): Promise<ShiftState> {
+  return (await getShiftStatus(tools, shiftId)).state
 }

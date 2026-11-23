@@ -175,6 +175,50 @@ type in `worker.d.ts` ~L3529)
 **You should verify**
 - Nothing committed yet — awaiting your review.
 
+### Nov 22 — actions group 2: claimShift
+**What I did**
+- `src/actions/claims.ts` (claimShift), registered in `src/actions/index.ts`.
+- `src/actions/lib.ts`: `getShiftStatus` returns `{ state, claim?, decision? }`; `getShiftState` now
+  wraps it (postShift unchanged).
+- `tests/claims.spec.ts`. New test accounts **"Worker B"** (`worker-b-90595b@deepspace.test`) and
+  **"Worker C"** (`worker-c-f1f989@deepspace.test`); members, join inside tests. Test 3 needs three
+  members (poster + two claimers).
+
+**Decisions / assumptions**
+- Daily claim cap (your definition): claim attempts in the last 24h on shifts that haven't started =
+  current claims (createdAt ≥ now−24h) + rejected/released decisions with claimantId = caller
+  (at ≥ now−24h), deduped by claimId, filtered to shifts with startsAt > now. Cap 5. Not atomic.
+- Stale claim (rejected/released decision) is deleted **by its recordId only**, never by shiftId, so a slow
+  caller can't delete a fresh claim another user just created. Not-found on delete is ignored.
+- "claimed" state and the uniqueOn `Duplicate:` ack both return "Someone already claimed this shift."
+- Only `shiftId` is read from params; claimantId/claimantName come from ctx.userId / team_members.
+
+**Verified** — `npx deepspace test run tests/claims.spec.ts`: 4 passed.
+- claim succeeds; spoofed `claimantId` ignored. Own-shift claim rejected. Outsider rejected.
+- Concurrent B+C claim: exactly one success (C won this run), the other "Someone already claimed this shift."
+  Note: the output can't show whether the loser hit the pre-check or the uniqueOn duplicate path — both
+  return the same message by design; atomicity itself was proven in spike b.
+
+**NOT tested yet**
+- Stale-claim cleanup + re-claim after reject/release (needs group 3 actions).
+- Claim cap (P1).
+
+**Repeat run of test 3 (Nov 23)** — `deepspace test run` has no `--repeat-each`, so ran Playwright directly
+(skips the CLI's dev-secrets refresh; `.dev.vars` was fresh):
+- `npx playwright test -c tests/playwright.config.ts claims.spec.ts --grep concurrently --repeat-each=20`
+  → **9/20 passed** (Playwright used 5 parallel workers).
+- Same with `--workers=1` → **18/20 passed**.
+- **Every failure was a soft cap, none was a race failure.** Across both runs: 0 shifts with two successful
+  claims (checked every successful claim's shiftId for duplicates). Failures were:
+  - `You've reached the limit of 5 claims per day.` — 20 repeats in ~13–39 s; each claim counts until its
+    shift starts (now+15s), so Worker B/C exceed 5 counted claims.
+  - Parallel run only: cascade to `You already have 3 open shifts.` for Spike A (capped claims leave the
+    posted shifts open, and they count until they start).
+- Hypothesis confirmed by the numbers: fewer concurrent repeats (serial) → fewer cap hits (11 → 2).
+- **Proposed fix (not applied, needs your OK):** in this test only, start shifts at now+5s instead of
+  now+15s (claim follows the post within ~20 ms), and do repeat runs with `--workers=1`. No assertion
+  changes. Alternative: rotate claimers across more accounts.
+
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
   (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
@@ -182,4 +226,5 @@ type in `worker.d.ts` ~L3529)
   Writes are unaffected: every write is an action that checks `team_members` itself.
 
 ## Later (out of scope)
+- claimShift daily cap is not atomic (concurrent claims can exceed it) — soft by design.
 - postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
