@@ -94,6 +94,7 @@ export default function Landing() {
                   startsAt={T0}
                   endsAt={T1}
                   timeLabels={LABELS}
+                  stacked
                   posterLabel="Posted by Alex"
                   state={s.state}
                   claimantName={s.claimant}

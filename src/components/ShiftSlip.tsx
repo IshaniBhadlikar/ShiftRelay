@@ -50,6 +50,8 @@ export interface ShiftSlipProps {
   /** Fixed display labels instead of formatting startsAt/endsAt in the viewer's
    *  zone — for the prerendered landing, where build and browser zones differ. */
   timeLabels?: { start: string; end: string; duration: string }
+  /** Always use the stacked (time row on top) layout, for narrow containers. */
+  stacked?: boolean
   /** Rendered under the action row (e.g. a verbatim server error). */
   message?: ReactNode
   className?: string
@@ -70,27 +72,36 @@ export function ShiftSlip({
   message,
   dimmed = false,
   timeLabels,
+  stacked = false,
   className,
   ...rest
 }: ShiftSlipProps) {
+  // Side-by-side timecard column from `sm` up, unless forced stacked.
+  const side = !stacked
   const [startTime, endTime] = timeLabels ? [timeLabels.start, timeLabels.end] : formatTimeParts(startsAt, endsAt)
   const duration = timeLabels ? timeLabels.duration : formatDuration(startsAt, endsAt)
   return (
     <article
       {...rest}
       className={cn(
-        'flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-opacity sm:flex-row',
+        'flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground transition-opacity',
+        side && 'sm:flex-row',
         dimmed && 'opacity-60',
         className,
       )}
     >
       {/* Fixed-width timecard column. From sm up, start and "– end" are always
           their own lines, so every card breaks the same way. */}
-      <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-border px-4 py-3 sm:w-48 sm:shrink-0 sm:flex-col sm:justify-start sm:gap-1 sm:border-b-0 sm:border-r">
+      <div
+        className={cn(
+          'flex items-baseline justify-between gap-3 border-b border-dashed border-border px-4 py-3',
+          side && 'sm:w-48 sm:shrink-0 sm:flex-col sm:justify-start sm:gap-1 sm:border-b-0 sm:border-r',
+        )}
+      >
         <p className="font-mono text-[13px] font-medium tabular-nums leading-5 text-foreground" data-testid="shift-time">
-          <span className="whitespace-nowrap sm:block">{startTime}</span>
-          <span className="sm:hidden"> </span>
-          <span className="whitespace-nowrap sm:block">– {endTime}</span>
+          <span className={cn('whitespace-nowrap', side && 'sm:block')}>{startTime}</span>
+          <span className={cn(side && 'sm:hidden')}> </span>
+          <span className={cn('whitespace-nowrap', side && 'sm:block')}>– {endTime}</span>
         </p>
         <p className="font-mono text-xs tabular-nums text-muted-foreground">{duration}</p>
       </div>

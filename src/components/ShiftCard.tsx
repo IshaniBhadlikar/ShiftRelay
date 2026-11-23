@@ -23,8 +23,9 @@ export function ShiftCard({ view, viewer, now }: { view: ShiftView; viewer: View
 
   const mine = viewer?.userId === shift.postedBy
   const started = Date.parse(shift.startsAt) <= now.getTime()
+  const ended = Date.parse(shift.endsAt) <= now.getTime()
   const canClaim = !!viewer && state === 'open' && !mine && !started
-  const canRelease = !!viewer && state === 'claimed' && claim?.data.claimantId === viewer.userId
+  const canRelease = !!viewer && !ended && state === 'claimed' && claim?.data.claimantId === viewer.userId
 
   async function claimShift() {
     const res = await run('claimShift', { shiftId })
@@ -54,7 +55,7 @@ export function ShiftCard({ view, viewer, now }: { view: ShiftView; viewer: View
         tags={
           <>
             {isDemoId(shiftId) && <Tag>Demo</Tag>}
-            {started && <Tag>In progress</Tag>}
+            {ended ? <Tag>Ended</Tag> : started && <Tag>In progress</Tag>}
           </>
         }
         actions={

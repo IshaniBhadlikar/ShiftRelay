@@ -30,18 +30,18 @@ function Activity({ viewerId }: { viewerId: string }) {
   const posted = useMemo(
     () =>
       views
-        .filter((v) => v.shift.postedBy === viewerId)
-        .sort((a, b) => b.shift.startsAt.localeCompare(a.shift.startsAt))
-        .slice(0, 20),
-    [views, viewerId],
+        .filter((v) => v.shift.postedBy === viewerId && Date.parse(v.shift.endsAt) > now.getTime())
+        .sort((a, b) => a.shift.startsAt.localeCompare(b.shift.startsAt)),
+    [views, viewerId, now],
   )
-  // Live claims only (pending or approved); stale rejected/released rows are excluded by buildBoard.
+  // Live claims (pending or approved; buildBoard drops stale rejected/released rows) on shifts that
+  // haven't ended. Finished history lives in Decisions below.
   const claimed = useMemo(
     () =>
       views
-        .filter((v) => v.claim?.data.claimantId === viewerId)
+        .filter((v) => v.claim?.data.claimantId === viewerId && Date.parse(v.shift.endsAt) > now.getTime())
         .sort((a, b) => a.shift.startsAt.localeCompare(b.shift.startsAt)),
-    [views, viewerId],
+    [views, viewerId, now],
   )
   const mine = useMemo(
     () => decisions.filter((d) => d.data.claimantId === viewerId || d.data.actorId === viewerId),
@@ -79,7 +79,7 @@ function Activity({ viewerId }: { viewerId: string }) {
         )}
       </Section>
 
-      <Section title="Shifts you posted" count={posted.length} testId="activity-posted">
+      <Section title="Upcoming shifts you posted" count={posted.length} testId="activity-posted">
         {posted.length ? (
           <ul className="flex flex-col gap-3">
             {posted.map((v) => (
