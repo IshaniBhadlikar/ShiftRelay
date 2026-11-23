@@ -407,6 +407,16 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
   "rejects bad times"; exactly-24h accepted, posted by Worker C to stay off Spike A's open-shift cap).
 - Form check verified by tsc + unit only — the API test covers the server message.
 
+### Nov 23 — production prep (before deploy)
+- Build check: eslint clean; tsc + 13/13 unit; `vite build` + prerender OK; dev-only names absent from worker and
+  client bundles (`seedDemo` present). Full suite before: 38/38 Playwright + 13/13 unit.
+- Manager invites (single-use, 30 days, via `scripts/new-invite.mjs` default mode; codes shown once in the session,
+  never written to a file): `inv-owner-d79a`, `inv-reviewer-cdc3` (expire 2026-12-23 19:26 UTC),
+  `inv-reviewer-1682`, `inv-reviewer-d313` (expire 2026-12-23 19:29 UTC).
+- `MANAGER_INVITES` set in `--config prd` via stdin (base64 of the four hash entries; replaces the prd list).
+  Each code verified against its entry before setting. `secrets list --config prd --only-names` → only
+  `MANAGER_INVITES`; its value fingerprint matches the built value and differs from localtest's.
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
@@ -435,7 +445,7 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
 - Test invite fixtures: suffix fixture invite ids per generation (e.g. `test-mgr-m-<rand>`) so regenerating them re-exercises the fresh-redemption path (fixed ids always hit the retry path once redeemed).
 - Before submission, verify on the live site with a throwaway prd invite, then remove it.
 - Report to DeepSpace: the CLI's .dev.vars writer escapes quotes and dotenv keeps the backslashes, which breaks JSON secrets locally.
-- Before submission: generate reviewer invites with the script and set MANAGER_INVITES in --config prd; record the expiry.
+- DONE (Nov 23): reviewer invites generated and MANAGER_INVITES set in --config prd; expiry recorded above.
 - DONE (Nov 23): tests use the real invite path; devPromoteSelfToManager deleted.
 - claimShift daily cap is not atomic (concurrent claims can exceed it) — soft by design.
 - postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
