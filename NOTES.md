@@ -424,6 +424,20 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
   /home → "Shift board"; /post, /activity, /queue, /settings → "Sign in to continue"; /nope → "Page not
   found"; no page errors; /api/auth/ok 200. Signed-in flows, invites and demo seed: owner checklist (manual).
 
+### Nov 23 — pre-GitHub history audit (nothing pushed)
+- Scanned all 34 commits (full patches + messages, all refs) for exact values: the 4 prd invite codes, the 3 local
+  fixture codes, every `.dev.vars` value (incl. APP_OWNER_JWT, APP_IDENTITY_TOKEN, OWNER_USER_ID), the prd and
+  localtest MANAGER_INVITES values → **all absent**. `.dev.vars`, `tests/.invites.local.json`, `.env*` were never
+  added in any commit.
+- Pattern scan: no JWTs, GitHub/sk-/AWS keys, PEM blocks, Bearer tokens, password literals, 64-hex hashes.
+  Only hits: `MANAGER_INVITES=` once in NOTES prose with a `...` placeholder (c3c65e6); 43-char strings = npm
+  `sha512-` integrity hashes in package-lock.json (7fcd80d).
+- `.gitignore` covers `.dev.vars*`, `tests/.invites.local.json`, `.wrangler`, `.deepspace`, `dist`, `test-results`.
+  Gaps (files don't exist yet): `.env*`, `.claude/settings.local.json`.
+- Public on GitHub: author identity "Ishani Bhadlikar <personal gmail>" on every commit; test-account emails
+  (`@deepspace.test`) in NOTES/tests (passwords are local only).
+- `deepspace app source` → `deepspace` (claimed). A GitHub remote is a copy; it can't change the deploy source.
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
