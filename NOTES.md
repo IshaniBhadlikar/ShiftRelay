@@ -473,12 +473,26 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
   Worker C) — the new spec added B claims and C posts while other spec files ran in parallel. Fix (tests only):
   Spike A does the email-spec claiming (it never claims elsewhere), posting split across Worker C / Manager M /
   Worker B, shifts start in 3s. Result: `npm test` 43/43 Playwright + 31/31 unit, 0 cap hits.
-- Pre-existing (not from email): running the full suite twice BACK-TO-BACK fails `claims.spec` "two members claim
-  concurrently" on Worker B's claim cap — reproduced with email.spec excluded (run 1 38/38, run 2 1 failed). B's
-  claims from run 1 (e.g. the collab live shift starts in 30s) still count. A single run passes. See Later.
+- Pre-existing (not from email): running the full suite twice BACK-TO-BACK failed `claims.spec` "two members claim
+  concurrently" on Worker B's claim cap — reproduced with email.spec excluded. FIXED below (per-spec claimants).
 
 **Verify on production (after deploy)**: one real email to your own address — who it comes from (docs vs
 catalog, below), delivery, and the link.
+
+### Nov 23 — shared-cap test flake fixed (tests only)
+**Root cause (measured):** `claimShift` counts a user's claims + released/rejected decisions from the last 24 h
+on shifts that haven't STARTED (limit 5). Spec files run in parallel and shared the same claimants. A read-only
+poller over the local DB (250 ms) showed, at the failing claim in back-to-back run 2 (claims.spec "two members
+claim concurrently"), Worker B at exactly 5: run 1's collab "Live handoff" (+30s start, 17 s left), the demo.spec
+claim on demo-shift-1 (starts in 14 days; counted until test 4's re-seed), claims.spec "Claim me", decisions.spec
+"Release me" [released] and "Release then re-claim" [released]. Worker C was also at 5 at both email-race claims
+WITHIN a single run (claims/decisions/demo/email claims), so single runs could flake too.
+**Fix:** new test accounts "Worker D", "Worker E", "Worker F" (pool 8/10; random passwords via --password-stdin,
+stored only in ~/.deepspace/test-accounts.json). Claimants per spec: claims B+C, collab B, email Spike A (+C in
+the race), decisions D+E (was B+C), demo F (was B+C). Immediately-claimed test shifts start in 3 s (was 5 s) in
+claims/decisions/demo. Production limits and app code unchanged; no waits added.
+**Verified:** `npm test` 3× back-to-back: 43/43 Playwright + 31/31 unit each, 0 cap hits. Highest counted claims
+(limit 5): Worker B 3, Spike A 3, Worker D 2, Worker E 2, Worker F 2, Worker C 1, Manager M 1.
 
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
@@ -517,8 +531,7 @@ catalog, below), delivery, and the link.
 - README fallback: if demo shifts have passed, post your own shift from a second account.
 - DONE (Nov 23): Email (P1) skips demo-* recipients.
 - Email preferences / unsubscribe link; per-user opt-out (not built).
-- Tests: back-to-back full runs trip Worker B's 5-claims/day soft cap (claims.spec concurrent test). Options:
-  shorter start offsets in claims/decisions specs, or rotate claimants. Needs your OK (touches existing specs).
+- DONE (Nov 23): back-to-back test flake on the claim cap — per-spec claimant accounts (see log).
 - If the platform keeps ignoring `from`, recipients see "DeepSpace Apps" — consider the own-domain Resend route
   (RESEND_API_KEY secret) for a branded sender.
 - Test invite fixtures: suffix fixture invite ids per generation (e.g. `test-mgr-m-<rand>`) so regenerating them re-exercises the fresh-redemption path (fixed ids always hit the retry path once redeemed).
