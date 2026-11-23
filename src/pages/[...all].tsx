@@ -1,17 +1,17 @@
 import { Link } from 'react-router-dom'
+import { buttonVariants } from '@/components/ui'
 import { APP_NAME } from '../constants'
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center text-center px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
       <title>{`Not found · ${APP_NAME}`}</title>
       <meta name="robots" content="noindex" />
-      <h1 className="text-4xl font-bold text-foreground mb-2">404</h1>
-      <p className="text-muted-foreground mb-6">Page not found</p>
-      <Link
-        to="/home"
-        className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-      >
+      <p className="mb-3 font-mono text-sm tabular-nums text-muted-foreground">404</p>
+      <h1 className="mb-2 text-3xl font-semibold tracking-tight text-foreground">Page not found</h1>
+      <p className="mb-8 text-muted-foreground">This page isn&apos;t on the board.</p>
+      {/* Same shape as every other primary action: the kit's Button styles (theme radius, not a pill). */}
+      <Link to="/home" className={buttonVariants()}>
         Go home
       </Link>
     </div>

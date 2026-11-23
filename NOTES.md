@@ -385,6 +385,18 @@ type in `worker.d.ts` ~L3529)
   to see the queue as manager).
 - If you ever run specs with unnamed `users(n)` again, Outsider can be auto-joined — keep accounts named.
 
+### Nov 23 — /post, /activity, /queue 404 on the running dev server
+**Cause (found, no code change):** not the route scan — the server's log shows generouted rescanning 5 → 6 → 7 → 8
+routes as each page file was added, and the served route module listed all three pages. The routes reach the
+browser through Vite's pre-bundled `.vite/deps/@generouted_react-router_lazy.js?v=<hash>`, served with
+`Cache-Control: max-age=31536000, immutable`. The hash (`4903d0a0`) never changed after the checkpoint, so a
+browser that loaded the 5-route copy keeps using it on reload. A plain restart kept the same hash (8 routes).
+**Fix:** stopped the server, deleted `node_modules/.vite` (Vite's dep cache, regenerated on start), restarted →
+8 routes, new hash `ec13ccb5`. A fresh browser against :5173 reaches /post, /activity, /queue, /settings
+(sign-in panel) and only an unknown path 404s.
+**Also:** 404 page restyled — the "Go home" link uses the kit's `buttonVariants()` (theme radius, not a pill).
+**Verify:** reload /queue in your browser; if it still 404s, one hard reload (Cmd+Shift+R) drops the stale copy.
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
