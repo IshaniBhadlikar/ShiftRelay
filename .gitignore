@@ -13,3 +13,6 @@ src/router.ts
 src/modals.tsx
 .claude/launch.json
 .claude/worktrees
+
+# Local test invite codes (plaintext) — written by scripts/new-invite.mjs --test-fixtures
+tests/.invites.local.json

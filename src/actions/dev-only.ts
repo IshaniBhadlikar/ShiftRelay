@@ -7,7 +7,8 @@
  * (verified by grepping the build output — see NOTES.md). The guards below
  * are defense in depth in case that ever regresses.
  *
- * Delete devPromoteSelfToManager once redeemManagerInvite exists.
+ * devPromoteSelfToManager was removed once redeemManagerInvite existed; tests
+ * now become manager through the real invite path.
  */
 import { isTestAccountEmail } from 'deepspace/worker'
 import type { ActionContext, ActionHandler, ActionResult } from 'deepspace/worker'
@@ -23,18 +24,6 @@ async function devGuard({ userId, tools, env, callerJwt }: ActionContext<Env>): 
 }
 
 export const devActions: Record<string, ActionHandler<Env>> = {
-  /** Promote the CALLER (only) to manager. No params. Idempotent. */
-  devPromoteSelfToManager: async (ctx) => {
-    const denied = await devGuard(ctx)
-    if (denied) return denied
-    const { userId, tools } = ctx
-    if (!(await getMember(tools, userId))) return fail('Join the team first.')
-    const res = await tools.update('team_members', userId, { role: 'manager' })
-    if (!res.success) return fail(`Could not promote: ${res.error}`)
-    const member = await getMember(tools, userId)
-    return { success: true, data: { userId, role: member?.role } }
-  },
-
   /** Derived state + claim + all decisions for a shift (member-only). */
   devShiftSnapshot: async (ctx) => {
     const denied = await devGuard(ctx)

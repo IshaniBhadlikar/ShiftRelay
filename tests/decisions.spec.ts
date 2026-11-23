@@ -1,18 +1,20 @@
 /**
  * Actions group 3: releaseClaim / approveClaim / rejectClaim (shared decide()).
- * Run: npx deepspace test run tests/decisions.spec.ts
+ * Run: npx deepspace test run tests/decisions.spec.ts --secrets-config localtest
  * Race repeat (serial):
  *   npx playwright test -c tests/playwright.config.ts decisions.spec.ts \
  *     --grep concurrently --repeat-each=20 --workers=1
  *
  * Accounts (by name): "Spike A" posts (test 6 rotates poster with "Worker B"); "Worker B"/"Worker C" are workers;
- * "Manager M" is promoted via the DEV-ONLY devPromoteSelfToManager (not in the
- * production bundle — see src/actions/dev-only.ts). "Outsider" is not used.
+ * "Manager M" becomes manager via redeemManagerInvite with the local test invite
+ * test-mgr-m (tests/.invites.local.json — missing file FAILS, never skips).
+ * Run with --secrets-config localtest. "Outsider" is not used.
  * Shifts start in 5s so they drop out of the post/claim caps quickly.
  */
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect, findTestAccountByName } from 'deepspace/testing'
 import { bearer, callAction, tokenSubject } from './helpers/actions'
+import { loadInviteFixtures } from './helpers/invites'
 
 const NAMES = ['Spike A', 'Worker B', 'Worker C', 'Manager M']
 test.skip(
@@ -27,7 +29,10 @@ async function member(request: APIRequestContext, opts: { manager?: boolean } = 
   const token = await bearer(request)
   expect((await callAction(request, token, 'joinTeam')).success).toBe(true)
   if (opts.manager) {
-    const promoted = await callAction(request, token, 'devPromoteSelfToManager')
+    // Real invite path (same user every run → retry path, idempotent). A
+    // missing fixture file THROWS — the manager tests, incl. the race, fail loudly.
+    const { code } = loadInviteFixtures()['test-mgr-m']
+    const promoted = await callAction(request, token, 'redeemManagerInvite', { code })
     expect(promoted.success).toBe(true)
     expect(promoted.data.role).toBe('manager')
   }

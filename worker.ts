@@ -118,6 +118,12 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
    * an authenticated app owner/admin. deepspace dev/test set it locally.
    */
   ALLOW_DEBUG_ROUTES?: string
+  /**
+   * App secret: BASE64 of JSON [{ id, codeHash, expiresAt }] (codeHash = hex
+   * SHA-256 of the invite code). Real invites live in secrets config `prd`; local test
+   * invites in `localtest` (never deployed). See scripts/new-invite.mjs.
+   */
+  MANAGER_INVITES?: string
 }
 
 export type AppContext = { Bindings: Env }

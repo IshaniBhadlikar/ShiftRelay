@@ -266,6 +266,40 @@ type in `worker.d.ts` ~L3529)
 - Observation: approve won every run where release was delayed (even with 5 ms jitter; lost only at 1 ms),
   consistent with the "extra team_members read" hypothesis.
 
+### Nov 23 — group 4a: redeemManagerInvite
+**What I did (uncommitted, awaiting review)**
+- `scripts/new-invite.mjs`: default mode prints each code ONCE + the entries + the base64 MANAGER_INVITES value,
+  writes nothing (verified: git status unchanged). `--test-fixtures`: 3 local test invites → plaintext in
+  `tests/.invites.local.json` (gitignored, `git check-ignore` verified), base64 value on stdout.
+- **MANAGER_INVITES format = base64 of JSON `[{ id, codeHash, expiresAt }]`** in every environment (one parse
+  path). Reason: first attempt with raw JSON failed locally — the CLI writes `.dev.vars` as
+  `MANAGER_INVITES="[{\"id\":...}]"` and wrangler's dotenv (16.3.1) keeps the backslashes →
+  `JSON.parse` error at position 2 (reproduced with `dotenv.parse`). The action failed closed, as designed.
+- Secrets config **`localtest`** holds the test invites; package.json test scripts pass `--secrets-config localtest`.
+- `src/actions/invites.ts` (redeemManagerInvite): member check first; code 16–256 chars; SHA-256 → compared
+  against EVERY invite with `timingSafeEqualStrings` (no early exit); unknown/expired → same generic error;
+  `invite_redemptions` create; Duplicate → same user = retry grant, else "already used"; role validated, then granted.
+- `tests/helpers/invites.ts`: a missing/malformed fixture file THROWS (never skips) — incl. the decisions spec.
+- Decisions spec switched to the invite path; **`devPromoteSelfToManager` deleted** (`devShiftSnapshot` kept).
+
+**Why localtest is never deployed**
+- `dev start` / `test run` materialize one secrets config into `.dev.vars` (`--secrets-config`, default `prd`;
+  `cli.js` ~L4741, `writeDevVars` ~L3507). `.dev.vars` is gitignored.
+- `deploy` has no config flag: `loadDeploySecrets` uses `envName ?? 'prd'` (`cli.js:8530`); no `[env.*]` in
+  wrangler.toml → only `prd` is ever deployed. `prd` currently does not exist.
+
+**Verified**
+- `tests/invites.spec.ts --secrets-config localtest`: **6/6** — test 4 took the **new** redemption path.
+- `tests/decisions.spec.ts --secrets-config localtest`: **6/6** before and **6/6** after deleting the promote action
+  (manager setup took the retry path each time).
+- Build grep, `npx vite build` → `dist/shiftrelay/index.js` (deploy target per `.wrangler/deploy/config.json`):
+  claimShift 1, redeemManagerInvite 3 (FOUND); devPromoteSelfToManager 0, devShiftSnapshot 0, "Not available." 0.
+
+**Correction to my plan**
+- I said re-running `--test-fixtures` would re-exercise the fresh-redemption path. It won't: fixture invite ids
+  are fixed (`test-mgr-m`), and Manager M already redeemed that id, so a regenerated code with the same id takes
+  the retry path. Fix if wanted: suffix fixture ids per generation (e.g. `test-mgr-m-<rand>`).
+
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
   (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
@@ -273,6 +307,10 @@ type in `worker.d.ts` ~L3529)
   Writes are unaffected: every write is an action that checks `team_members` itself.
 
 ## Later (out of scope)
-- Once redeemManagerInvite exists, consider switching tests to the real invite path and deleting devPromoteSelfToManager.
+- Test invite fixtures: suffix fixture invite ids per generation (e.g. `test-mgr-m-<rand>`) so regenerating them re-exercises the fresh-redemption path (fixed ids always hit the retry path once redeemed).
+- Before submission, verify on the live site with a throwaway prd invite, then remove it.
+- Report to DeepSpace: the CLI's .dev.vars writer escapes quotes and dotenv keeps the backslashes, which breaks JSON secrets locally.
+- Before submission: generate reviewer invites with the script and set MANAGER_INVITES in --config prd; record the expiry.
+- DONE (Nov 23): tests use the real invite path; devPromoteSelfToManager deleted.
 - claimShift daily cap is not atomic (concurrent claims can exceed it) — soft by design.
 - postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
