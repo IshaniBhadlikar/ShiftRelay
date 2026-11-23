@@ -438,6 +438,40 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
   (`@deepspace.test`) in NOTES/tests (passwords are local only).
 - `deepspace app source` → `deepspace` (claimed). A GitHub remote is a copy; it can't change the deploy source.
 
+### Nov 23 — email notifications (P1)
+**What I did**
+- `src/actions/notify.ts`: `notify(tools, event, { dryRun })` via `tools.integration('email/send', { from, to,
+  subject, text })` ($0.013/request, developer billing → owner's credits; `email` not in src/integrations.ts).
+  Call shape confirmed with `npx deepspace integrations info email/send` (required: to, subject; text or html).
+- Sent ONLY by the action that won its unique write, after the write: `claimShift` → poster + all managers;
+  `approveClaim`/`rejectClaim` → claimant + poster; `releaseClaim` → poster. No email on post.
+- Recipients server-side: addresses from `users` rows, managers from `team_members` (role = manager). Skips the
+  actor, `demo-*` ids, users without a valid email; de-duplicated (poster-who-is-manager gets one, as poster);
+  max 10 per event; one email per recipient (no shared addresses).
+- Plain text: who acted, title, date + time in UTC ("Tue 8 Dec 2026, 19:00–23:00 UTC"; overnight shows the end
+  day), the board link. Sender `ShiftRelay <shiftrelay@app.space>`, no reply_to.
+- Never fails the action: notify() can't throw; each send has a 5 s timeout and is settled separately; failures
+  are logged as `[email] <kind> to user <id> … failed: <reason>` (user id, never the address). Actions await the
+  sends (ActionContext has no waitUntil).
+- Dry run: `emailDryRun(env) = import.meta.env.DEV || env.EMAIL_DRY_RUN === "true"`. DEV covers the dev server
+  and every test run (`npm run dev` materializes the PRD secrets by default, so a localtest-only secret would
+  not have protected local dev). `EMAIL_DRY_RUN=true` in prd = production off switch (not set).
+- DEV builds only: the winning action's response carries `data.emails` (what it would have sent).
+- `npm run check:bundle` (scripts/check-bundle.mjs, run after `npm run build`): dev-only actions, unreplaced
+  `import.meta.env.DEV`, `data.emails` and any client-side email code are absent; `email/send`, the off switch
+  and `seedDemo` present; `emailDryRun` compiles to exactly `env.EMAIL_DRY_RUN === "true"`.
+
+**Tests (no real email, no credits)**
+- Unit `src/actions/notify.test.ts` (18): recipients (actor/demo/dedupe/cap), UTC formatting, text; dry run
+  never calls email/send; failed / throwing / hanging (5 s timeout) sends and a throwing lookup never throw and
+  log user ids, not addresses.
+- E2E `tests/email.spec.ts` (5): claim → poster + Manager M, not claimant (spoofed claimantId ignored); approve
+  and reject → exactly claimant + poster; release → exactly poster; double-claim and release-vs-approve races →
+  only the winner carries emails. Addresses match the accounts' real emails (server-side lookup).
+
+**Verify on production (after deploy)**: one real email to your own address — who it comes from (docs vs
+catalog, below), delivery, and the link.
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
@@ -473,11 +507,23 @@ content-hashed names. Side note: each local test run regenerates `.dev.vars`, wh
 - Before submission: owner clicks Settings → Reset demo data on the live site and checks the demo state.
 - Reset demo data right before submitting.
 - README fallback: if demo shifts have passed, post your own shift from a second account.
-- Email (P1): skip demo-* recipients.
+- DONE (Nov 23): Email (P1) skips demo-* recipients.
+- Email preferences / unsubscribe link; per-user opt-out (not built).
+- If the platform keeps ignoring `from`, recipients see "DeepSpace Apps" — consider the own-domain Resend route
+  (RESEND_API_KEY secret) for a branded sender.
 - Test invite fixtures: suffix fixture invite ids per generation (e.g. `test-mgr-m-<rand>`) so regenerating them re-exercises the fresh-redemption path (fixed ids always hit the retry path once redeemed).
 - Before submission, verify on the live site with a throwaway prd invite, then remove it.
-- Report to DeepSpace: the CLI's .dev.vars writer escapes quotes and dotenv keeps the backslashes, which breaks JSON secrets locally.
 - DONE (Nov 23): reviewer invites generated and MANAGER_INVITES set in --config prd; expiry recorded above.
 - DONE (Nov 23): tests use the real invite path; devPromoteSelfToManager deleted.
 - claimShift daily cap is not atomic (concurrent claims can exceed it) — soft by design.
 - postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
+
+## Report to DeepSpace
+- The CLI's .dev.vars writer escapes quotes and dotenv keeps the backslashes, which breaks JSON secrets locally
+  (worked around with base64 for MANAGER_INVITES).
+- `email/send` sender: the docs (guides/external-apis "Sending email"; agents/cron-every-monday-morning-weekly-
+  reminder) say to send from `<app-name>@app.space` and that other senders are rejected, but the live catalog
+  (`npx deepspace integrations info email/send`, CLI 0.44.2, Nov 23) says "Send a transactional email from
+  DeepSpace Apps <notifications@updates.app.space>. Any from value is ignored; use reply_to for replies." One of
+  them is out of date. We send `ShiftRelay <shiftrelay@app.space>`; the first real production email will show
+  which is true.
