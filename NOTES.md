@@ -112,4 +112,32 @@ type in `worker.d.ts` ~L3529)
 - Never pass `params`, `userId`, or `isAdmin` to registerUser.
 - `team_members.displayName` = that same verified name.
 
+### Nov 22 — collection schemas
+**What I did**
+- Added `team_members`, `shifts`, `claims`, `decisions`, `invite_redemptions` (one file each in
+  `src/schemas/`, registered in `src/schemas.ts`), exactly as in the approved plan.
+- Every collection: `create/update/delete: false` for `'*'`, `member`, `admin`. Blocks are spelled out
+  per role because an exact role key REPLACES `'*'` (SDK `getRolePermissions`, worker.js:612).
+- Reads: anonymous (`viewer` → `'*'`) nothing; `member` reads shifts/claims/decisions, and only its own
+  `team_members` row; `admin` reads all; `invite_redemptions` admin-only.
+- `decisions` carries `claimantId` (required, immutable) + `claimantName`, copied from the claim when the
+  decision is written, so the audit trail survives claim deletion.
+- `immutable` on ids/links/outcome/timestamps; no `userBound` (it would break seedDemo's demo ids).
+
+**Assumptions / rules for the actions**
+- All datetimes stored as UTC via `new Date(x).toISOString()`; the schema can't enforce it.
+- `select` options (`role`, `outcome`) are NOT enforced by the SDK on write; actions must validate.
+- `required` / `maxLength` / `immutable` ARE enforced on action writes (second line of defense).
+
+**Verified**
+- `npx tsc --noEmit` clean. `npx deepspace test run` (smoke + api): 8 passed, no schema errors in the
+  worker log (the WebSocket test boots the record DO with the new schemas).
+- NOT yet verified: that a client write is actually refused. No UI write path exists; deferred to test 3 (authz).
+
+## Tradeoffs (for the writeup)
+- **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
+  (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
+  any signed-in user may join anyway; the alternative (all reads via actions) costs realtime `useQuery`.
+  Writes are unaffected: every write is an action that checks `team_members` itself.
+
 ## Later (out of scope)
