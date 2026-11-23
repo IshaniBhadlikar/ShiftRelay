@@ -6,7 +6,8 @@
  */
 import { useMemo, useState } from 'react'
 import { AuthOverlay } from 'deepspace'
-import { CalendarClock, RotateCw } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { CalendarClock, Plus, RotateCw } from 'lucide-react'
 import { Button, EmptyState } from '@/components/ui'
 import { ShiftCard } from '@/components/ShiftCard'
 import { ShiftSlip } from '@/components/ShiftSlip'
@@ -17,14 +18,22 @@ import type { ShiftView } from '@/lib/shift-state'
 
 export default function BoardPage() {
   const team = useTeam()
+  const navigate = useNavigate()
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 pb-24 pt-10 sm:pt-14">
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Shift board</h1>
-        <p className="mt-2 max-w-xl text-muted-foreground">
-          Shifts your coworkers need covered, soonest first. Claim one, and a manager signs off.
-        </p>
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Shift board</h1>
+          <p className="mt-2 max-w-xl text-muted-foreground">
+            Shifts your coworkers need covered, soonest first. Claim one, and a manager signs off.
+          </p>
+        </div>
+        {team.status === 'ready' && (
+          <Button onClick={() => navigate('/post')}>
+            <Plus aria-hidden /> Post a shift
+          </Button>
+        )}
       </header>
 
       {team.status === 'signed-out' ? (
@@ -56,6 +65,7 @@ export default function BoardPage() {
 }
 
 function Board({ viewerId }: { viewerId: string }) {
+  const navigate = useNavigate()
   const { status, error, views } = useBoardData()
   const now = useNow()
 
@@ -86,6 +96,7 @@ function Board({ viewerId }: { viewerId: string }) {
         icon={<CalendarClock />}
         title="No upcoming shifts"
         description="When someone posts a shift they need covered, it shows up here."
+        action={{ label: 'Post a shift', onClick: () => navigate('/post') }}
       />
     )
   }
