@@ -220,6 +220,45 @@ type in `worker.d.ts` ~L3529)
 - **Result:** `--repeat-each=20 --workers=1` → **20/20 passed**; 20 successful claims on 20 distinct
   shifts, 0 double wins, 0 cap errors. Full `tests/claims.spec.ts` via `deepspace test run`: 4/4 passed.
 
+### Nov 23 — actions group 3: releaseClaim / approveClaim / rejectClaim
+**What I did**
+- `src/actions/decisions.ts`: shared `decide()` + three actions. Only `claimId` read from params; outcome
+  validated; claim re-read ("This claim no longer exists."); release = claimant only; approve/reject =
+  manager and not the claimant; decision copies claimantId/claimantName; `Duplicate:` → "This claim was
+  already decided."; winner-only delete for reject/release (by claimId, RECORD_NOT_FOUND ignored, other
+  errors logged — decision stands).
+- `src/actions/dev-only.ts` (`devPromoteSelfToManager`, `devShiftSnapshot`), registered only as
+  `...(import.meta.env.DEV ? devActions : {})`. Guards inside: DEV, ALLOW_DEBUG_ROUTES, verified test-account email.
+- `tests/decisions.spec.ts`. New test account **"Manager M"** (`manager-m-8fcd8e@deepspace.test`),
+  promoted via the dev-only action.
+
+**Why the dev-only promotion can't work in production (verified)**
+- `deepspace deploy` runs `npx vite build` (cli.js ~L7209) and ships the bundle named by
+  `.wrangler/deploy/config.json` → `dist/shiftrelay/wrangler.json` → `main: index.js` (cli.js ~L7234-7239).
+- Grepped **`dist/shiftrelay/index.js`** after `npx vite build`:
+  - positive control `claimShift` → FOUND (also releaseClaim/approveClaim/rejectClaim, 1 each)
+  - `devPromoteSelfToManager` → NOT found; `devShiftSnapshot` → NOT found; dev-only string "Not available." → 0
+- So the code is not in the deployed bundle. The in-handler guards are defense in depth only.
+
+**Verified**
+- `npx deepspace test run tests/decisions.spec.ts`: **6/6 passed.**
+- Bonus: Manager M's `joinTeam` returned `role: "manager"` after promotion → joinTeam doesn't downgrade
+  (first live evidence; previously only argued from the `default` semantics).
+- Race repeat `--grep concurrently --repeat-each=20 --workers=1`: **18/20 passed.**
+  - 2 failures: `postShift` → "You already have 3 open shifts." (Spike A). Release won every race, so each
+    shift reopened and counted toward Spike A's cap until it started (5 s). Not a race failure.
+  - **Release won 18/18; approve won 0.** Every loser was approve → "This claim was already decided."
+    Hypothesis: approve does an extra `team_members` read before its write, so release reaches the
+    decision write first almost every time. The "approve wins the race" branch was never exercised.
+  - 0 runs with ≠1 decision; claimant and manager snapshots were equal in every passing run.
+
+**NOT tested**
+- claimShift's stale-cleanup branch (needs a decision whose claim delete failed — fault injection).
+- Approve winning the race (see above).
+
+**You should verify / decide**
+- Fix for the post-cap failures and the one-sided race — proposals in my report; nothing committed.
+
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
   (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
@@ -227,5 +266,6 @@ type in `worker.d.ts` ~L3529)
   Writes are unaffected: every write is an action that checks `team_members` itself.
 
 ## Later (out of scope)
+- Once redeemManagerInvite exists, consider switching tests to the real invite path and deleting devPromoteSelfToManager.
 - claimShift daily cap is not atomic (concurrent claims can exceed it) — soft by design.
 - postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
