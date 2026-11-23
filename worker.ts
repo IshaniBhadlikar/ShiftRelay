@@ -124,6 +124,12 @@ export interface Env extends DOBindings<typeof __DO_MANIFEST__> {
    * invites in `localtest` (never deployed). See scripts/new-invite.mjs.
    */
   MANAGER_INVITES?: string
+  /**
+   * Production off switch for email notifications: exactly "true" → plan but
+   * never send. DEV builds (dev server, tests) never send regardless. See
+   * src/actions/notify.ts.
+   */
+  EMAIL_DRY_RUN?: string
 }
 
 export type AppContext = { Bindings: Env }

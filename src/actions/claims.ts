@@ -1,6 +1,7 @@
 import type { ActionHandler, ActionTools } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import { fail, getMember, getShiftStatus } from './lib'
+import { emailDryRun, notify } from './notify'
 
 const DAILY_CLAIM_CAP = 5
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -54,7 +55,7 @@ export const claimActions: Record<string, ActionHandler<Env>> = {
    * from params; claimant is always ctx.userId. uniqueOn ['shiftId'] makes the
    * write atomic — the loser of a race gets ALREADY_CLAIMED.
    */
-  claimShift: async ({ userId, params, tools }) => {
+  claimShift: async ({ userId, params, tools, env }) => {
     const member = await getMember(tools, userId)
     if (!member) return fail('Join the team before claiming a shift.')
 
@@ -92,8 +93,24 @@ export const claimActions: Record<string, ActionHandler<Env>> = {
       return created.error.startsWith('Duplicate:') ? fail(ALREADY_CLAIMED) : fail(`Could not claim shift: ${created.error}`)
     }
 
+    // Winner only (the loser returned ALREADY_CLAIMED above). Email outcome never changes the result.
+    const claimantName = member.displayName || 'Team member'
+    const mail = await notify(
+      tools,
+      { kind: 'claimed', shiftId, actorId: userId, actorName: claimantName, claimantId: userId, claimantName },
+      { dryRun: emailDryRun(env) },
+    )
+
     const stored = await tools.get('claims', created.data.recordId)
     if (!stored.success) return fail(`Could not read claim: ${stored.error}`)
-    return { success: true, data: { claimId: created.data.recordId, claim: stored.data.record.data } }
+    return {
+      success: true,
+      data: {
+        claimId: created.data.recordId,
+        claim: stored.data.record.data,
+        // DEV builds only (dev server + tests): what would have been sent. Stripped from production.
+        ...(import.meta.env.DEV ? { emails: mail.emails } : {}),
+      },
+    }
   },
 }

@@ -2,6 +2,7 @@ import { RECORD_NOT_FOUND } from 'deepspace/worker'
 import type { ActionContext, ActionHandler, ActionResult } from 'deepspace/worker'
 import type { Env } from '../../worker'
 import { fail, getMember } from './lib'
+import { emailDryRun, notify } from './notify'
 
 type Outcome = 'approved' | 'rejected' | 'released'
 const OUTCOMES: readonly string[] = ['approved', 'rejected', 'released']
@@ -12,7 +13,7 @@ type ClaimData = { shiftId: string; claimantId: string; claimantName?: string }
  * decision per claim; only the action that wins that write continues.
  * Only `claimId` is read from params; the actor is always ctx.userId.
  */
-async function decide({ userId, params, tools }: ActionContext<Env>, outcome: Outcome): Promise<ActionResult> {
+async function decide({ userId, params, tools, env }: ActionContext<Env>, outcome: Outcome): Promise<ActionResult> {
   if (!OUTCOMES.includes(outcome)) return fail('Invalid outcome.')
   const claimId = typeof params.claimId === 'string' ? params.claimId : ''
   if (!claimId) return fail('claimId is required.')
@@ -21,12 +22,14 @@ async function decide({ userId, params, tools }: ActionContext<Env>, outcome: Ou
   if (!claimRes.success) return fail('This claim no longer exists.')
   const claim = claimRes.data.record.data
 
+  let actorName = claim.claimantName ?? ''
   if (outcome === 'released') {
     if (claim.claimantId !== userId) return fail('Only the claimant can release this claim.')
   } else {
     const member = await getMember(tools, userId)
     if (member?.role !== 'manager') return fail('Only managers can approve or reject claims.')
     if (claim.claimantId === userId) return fail("You can't decide your own claim.")
+    actorName = member.displayName
   }
 
   const created = await tools.create('decisions', {
@@ -54,7 +57,31 @@ async function decide({ userId, params, tools }: ActionContext<Env>, outcome: Ou
     }
   }
 
-  return { success: true, data: { decisionId: created.data.recordId, outcome, claimId, shiftId: claim.shiftId } }
+  // Winner only (losers returned "already decided" above). Email outcome never changes the result.
+  const mail = await notify(
+    tools,
+    {
+      kind: outcome,
+      shiftId: claim.shiftId,
+      actorId: userId,
+      actorName,
+      claimantId: claim.claimantId,
+      claimantName: claim.claimantName ?? '',
+    },
+    { dryRun: emailDryRun(env) },
+  )
+
+  return {
+    success: true,
+    data: {
+      decisionId: created.data.recordId,
+      outcome,
+      claimId,
+      shiftId: claim.shiftId,
+      // DEV builds only (dev server + tests): what would have been sent. Stripped from production.
+      ...(import.meta.env.DEV ? { emails: mail.emails } : {}),
+    },
+  }
 }
 
 export const decisionActions: Record<string, ActionHandler<Env>> = {
