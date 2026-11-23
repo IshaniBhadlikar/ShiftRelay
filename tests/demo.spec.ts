@@ -8,8 +8,10 @@
  * seedDemo is tested for rejecting non-owners only; the owner path is checked
  * manually (Settings → Reset demo data).
  *
- * Accounts: "Worker B" (member), "Manager M" (manager via invite; missing
- * fixture file FAILS), "Spike A" + "Worker C" for non-demo data.
+ * Accounts: "Worker F" (member; makes every claim in this file — a demo claim
+ * starts 14 days out and counts toward its 5-claims/day cap until a re-seed, so
+ * no other spec claims as F), "Manager M" (manager via invite; missing fixture
+ * file FAILS), "Spike A" posts the non-demo shift.
  * Every test that seeds leaves fresh demo state behind (test 4 ends with a re-seed).
  */
 import type { APIRequestContext } from '@playwright/test'
@@ -17,7 +19,7 @@ import { test, expect, findTestAccountByName } from 'deepspace/testing'
 import { bearer, callAction, tokenSubject } from './helpers/actions'
 import { loadInviteFixtures } from './helpers/invites'
 
-const NAMES = ['Spike A', 'Worker B', 'Worker C', 'Manager M']
+const NAMES = ['Spike A', 'Worker F', 'Manager M']
 test.skip(
   NAMES.some((n) => !findTestAccountByName(n)),
   `Needs test accounts named ${NAMES.map((n) => `"${n}"`).join(', ')}`,
@@ -76,7 +78,7 @@ function expectFreshDemo(state: Record<string, unknown>) {
 }
 
 test('1. a non-owner (worker or manager) cannot seed demo data', async ({ users }) => {
-  const [b, m] = await users(['Worker B', 'Manager M'])
+  const [b, m] = await users(['Worker F', 'Manager M'])
   for (const actor of [await member(b.context.request), await member(m.context.request, { manager: true })]) {
     const res = await call(actor, 'seedDemo')
     expect(res.success).toBe(false)
@@ -85,7 +87,7 @@ test('1. a non-owner (worker or manager) cannot seed demo data', async ({ users 
 })
 
 test('2. seeding is idempotent', async ({ users }) => {
-  const [b] = await users(['Worker B'])
+  const [b] = await users(['Worker F'])
   const viewer = await member(b.context.request)
 
   const first = await seed(viewer)
@@ -108,12 +110,12 @@ test('2. seeding is idempotent', async ({ users }) => {
 })
 
 test('3. after seeding, a member can claim a demo shift and a manager can approve the pending demo claim', async ({ users }) => {
-  const [b, m] = await users(['Worker B', 'Manager M'])
-  const workerB = await member(b.context.request)
+  const [b, m] = await users(['Worker F', 'Manager M'])
+  const workerF = await member(b.context.request)
   const manager = await member(m.context.request, { manager: true })
-  await seed(workerB)
+  await seed(workerF)
 
-  const claim = await call(workerB, 'claimShift', { shiftId: 'demo-shift-1' })
+  const claim = await call(workerF, 'claimShift', { shiftId: 'demo-shift-1' })
   expect(claim.success).toBe(true)
   const approve = await call(manager, 'approveClaim', { claimId: 'demo-claim-1' })
   expect(approve.success).toBe(true)
@@ -122,43 +124,42 @@ test('3. after seeding, a member can claim a demo shift and a manager can approv
 })
 
 test('4. re-seeding restores the demo and leaves non-demo data untouched', async ({ users }) => {
-  const [a, b, c, m] = await users(['Spike A', 'Worker B', 'Worker C', 'Manager M'])
+  const [a, f, m] = await users(['Spike A', 'Worker F', 'Manager M'])
   const poster = await member(a.context.request)
-  const workerB = await member(b.context.request)
-  const workerC = await member(c.context.request)
+  const workerF = await member(f.context.request)
   const manager = await member(m.context.request, { manager: true })
 
   // Non-demo data: a real shift, claimed and approved (a real decision).
   const posted = await call(poster, 'postShift', {
     title: 'Real shift (not demo)',
-    startsAt: new Date(Date.now() + 5_000).toISOString(),
+    startsAt: new Date(Date.now() + 3_000).toISOString(),
     endsAt: new Date(Date.now() + 2 * HOUR).toISOString(),
   })
   expect(posted.success).toBe(true)
   const realShiftId = posted.data.shiftId
-  const realClaim = await call(workerC, 'claimShift', { shiftId: realShiftId })
+  const realClaim = await call(workerF, 'claimShift', { shiftId: realShiftId })
   expect(realClaim.success).toBe(true)
   expect((await call(manager, 'approveClaim', { claimId: realClaim.data.claimId })).success).toBe(true)
-  const realBefore = await snapshot(workerC, realShiftId)
+  const realBefore = await snapshot(workerF, realShiftId)
   expect(realBefore.state).toBe('covered')
 
-  // Make sure demo state is "used": B's claim on demo-shift-1 and a decided demo-claim-1.
-  await seed(workerB)
-  expect((await call(workerB, 'claimShift', { shiftId: 'demo-shift-1' })).success).toBe(true)
+  // Make sure demo state is "used": F's claim on demo-shift-1 and a decided demo-claim-1.
+  await seed(workerF)
+  expect((await call(workerF, 'claimShift', { shiftId: 'demo-shift-1' })).success).toBe(true)
   expect((await call(manager, 'approveClaim', { claimId: 'demo-claim-1' })).success).toBe(true)
 
   // Re-seed: demo restored...
-  const reseed = await seed(workerB)
+  const reseed = await seed(workerF)
   expect(reseed.removed).toEqual({ claims: 2, decisions: 1 })
-  expectFreshDemo(await demoState(workerB))
+  expectFreshDemo(await demoState(workerF))
   // ...and the re-created demo-claim-1 can be decided again (decisions.uniqueOn handled).
   expect((await call(manager, 'approveClaim', { claimId: 'demo-claim-1' })).success).toBe(true)
 
   // Non-demo data untouched.
-  expect(await snapshot(workerC, realShiftId)).toEqual(realBefore)
-  expect((await call(workerB, 'joinTeam')).data.role).toBe('worker')
+  expect(await snapshot(workerF, realShiftId)).toEqual(realBefore)
+  expect((await call(workerF, 'joinTeam')).data.role).toBe('worker')
   expect((await call(manager, 'joinTeam')).data.role).toBe('manager')
 
   // Leave fresh demo state behind.
-  expectFreshDemo((await seed(workerB), await demoState(workerB)))
+  expectFreshDemo((await seed(workerF), await demoState(workerF)))
 })

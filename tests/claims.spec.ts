@@ -4,7 +4,7 @@
  *
  * Accounts (by name): "Spike A", "Worker B", "Worker C" are members (they join
  * here). "Outsider" must NEVER join — see tests/team-and-shifts.spec.ts.
- * Test shifts start in 5s so they drop out of the post/claim caps quickly
+ * Test shifts start in 3s so they drop out of the post/claim caps quickly
  * (local DO state persists across runs; the claim follows the post by ~20 ms).
  * Repeat checks: run serially, e.g.
  *   npx playwright test -c tests/playwright.config.ts claims.spec.ts \
@@ -32,7 +32,7 @@ async function actor(request: APIRequestContext, join: boolean): Promise<Actor> 
 async function postShift(poster: Actor, title: string): Promise<string> {
   const res = await callAction(poster.request, poster.token, 'postShift', {
     title,
-    startsAt: new Date(Date.now() + 5_000).toISOString(),
+    startsAt: new Date(Date.now() + 3_000).toISOString(),
     endsAt: new Date(Date.now() + 2 * HOUR).toISOString(),
   })
   expect(res.success).toBe(true)

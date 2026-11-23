@@ -5,18 +5,18 @@
  *   npx playwright test -c tests/playwright.config.ts decisions.spec.ts \
  *     --grep concurrently --repeat-each=20 --workers=1
  *
- * Accounts (by name): "Spike A" posts (test 6 rotates poster with "Worker B"); "Worker B"/"Worker C" are workers;
+ * Accounts (by name): "Spike A" posts (test 6 rotates poster with "Worker D"); "Worker D"/"Worker E" are workers;
  * "Manager M" becomes manager via redeemManagerInvite with the local test invite
  * test-mgr-m (tests/.invites.local.json — missing file FAILS, never skips).
  * Run with --secrets-config localtest. "Outsider" is not used.
- * Shifts start in 5s so they drop out of the post/claim caps quickly.
+ * Shifts start in 3s so they drop out of the post/claim caps quickly.
  */
 import type { APIRequestContext } from '@playwright/test'
 import { test, expect, findTestAccountByName } from 'deepspace/testing'
 import { bearer, callAction, tokenSubject } from './helpers/actions'
 import { loadInviteFixtures } from './helpers/invites'
 
-const NAMES = ['Spike A', 'Worker B', 'Worker C', 'Manager M']
+const NAMES = ['Spike A', 'Worker D', 'Worker E', 'Manager M']
 test.skip(
   NAMES.some((n) => !findTestAccountByName(n)),
   `Needs test accounts named ${NAMES.map((n) => `"${n}"`).join(', ')}`,
@@ -44,7 +44,7 @@ const call = (a: Actor, name: string, params: object = {}) => callAction(a.reque
 async function postAndClaim(poster: Actor, claimant: Actor, title: string) {
   const posted = await call(poster, 'postShift', {
     title,
-    startsAt: new Date(Date.now() + 5_000).toISOString(),
+    startsAt: new Date(Date.now() + 3_000).toISOString(),
     endsAt: new Date(Date.now() + 2 * HOUR).toISOString(),
   })
   expect(posted.success).toBe(true)
@@ -60,49 +60,49 @@ const snapshot = async (a: Actor, shiftId: string) => {
 }
 
 test('1. release works and the shift reopens', async ({ users }) => {
-  const [a, b] = await users(['Spike A', 'Worker B'])
+  const [a, b] = await users(['Spike A', 'Worker D'])
   const poster = await member(a.context.request)
-  const workerB = await member(b.context.request)
-  const { shiftId, claimId } = await postAndClaim(poster, workerB, 'Release me')
+  const workerD = await member(b.context.request)
+  const { shiftId, claimId } = await postAndClaim(poster, workerD, 'Release me')
 
-  const res = await call(workerB, 'releaseClaim', { claimId })
+  const res = await call(workerD, 'releaseClaim', { claimId })
   expect(res.success).toBe(true)
   expect(res.data).toMatchObject({ outcome: 'released', claimId, shiftId })
 
-  const snap = await snapshot(workerB, shiftId)
+  const snap = await snapshot(workerD, shiftId)
   expect(snap.state).toBe('open')
   expect(snap.claim).toBeNull()
   expect(snap.decisions).toHaveLength(1)
-  expect(snap.decisions[0]).toMatchObject({ claimId, outcome: 'released', actorId: workerB.id, claimantId: workerB.id })
+  expect(snap.decisions[0]).toMatchObject({ claimId, outcome: 'released', actorId: workerD.id, claimantId: workerD.id })
 })
 
 test('2. re-claim after release works', async ({ users }) => {
-  const [a, b, c] = await users(['Spike A', 'Worker B', 'Worker C'])
+  const [a, b, c] = await users(['Spike A', 'Worker D', 'Worker E'])
   const poster = await member(a.context.request)
-  const workerB = await member(b.context.request)
-  const workerC = await member(c.context.request)
-  const { shiftId, claimId } = await postAndClaim(poster, workerB, 'Release then re-claim')
-  expect((await call(workerB, 'releaseClaim', { claimId })).success).toBe(true)
+  const workerD = await member(b.context.request)
+  const workerE = await member(c.context.request)
+  const { shiftId, claimId } = await postAndClaim(poster, workerD, 'Release then re-claim')
+  expect((await call(workerD, 'releaseClaim', { claimId })).success).toBe(true)
 
-  const again = await call(workerC, 'claimShift', { shiftId })
+  const again = await call(workerE, 'claimShift', { shiftId })
   expect(again.success).toBe(true)
   expect(again.data.claimId).not.toBe(claimId)
 
-  const snap = await snapshot(workerC, shiftId)
+  const snap = await snapshot(workerE, shiftId)
   expect(snap.state).toBe('claimed')
-  expect(snap.claim).toMatchObject({ claimId: again.data.claimId, claimantId: workerC.id })
+  expect(snap.claim).toMatchObject({ claimId: again.data.claimId, claimantId: workerE.id })
   expect(snap.decisions).toHaveLength(1)
   expect(snap.decisions[0]).toMatchObject({ claimId, outcome: 'released' })
 })
 
 test('3. a worker calling approveClaim is rejected', async ({ users }) => {
-  const [a, b, c] = await users(['Spike A', 'Worker B', 'Worker C'])
+  const [a, b, c] = await users(['Spike A', 'Worker D', 'Worker E'])
   const poster = await member(a.context.request)
-  const workerB = await member(b.context.request)
-  const workerC = await member(c.context.request)
-  const { claimId } = await postAndClaim(poster, workerC, 'Worker tries to approve')
+  const workerD = await member(b.context.request)
+  const workerE = await member(c.context.request)
+  const { claimId } = await postAndClaim(poster, workerE, 'Worker tries to approve')
 
-  const res = await call(workerB, 'approveClaim', { claimId })
+  const res = await call(workerD, 'approveClaim', { claimId })
   expect(res.success).toBe(false)
   expect(res.error).toBe('Only managers can approve or reject claims.')
 })
@@ -119,28 +119,28 @@ test('4. a manager approving their own claim is rejected', async ({ users }) => 
 })
 
 test("5. a manager approves another member's claim and the shift is covered", async ({ users }) => {
-  const [a, c, m] = await users(['Spike A', 'Worker C', 'Manager M'])
+  const [a, c, m] = await users(['Spike A', 'Worker E', 'Manager M'])
   const poster = await member(a.context.request)
-  const workerC = await member(c.context.request)
+  const workerE = await member(c.context.request)
   const manager = await member(m.context.request, { manager: true })
-  const { shiftId, claimId } = await postAndClaim(poster, workerC, 'Approve me')
+  const { shiftId, claimId } = await postAndClaim(poster, workerE, 'Approve me')
 
   const res = await call(manager, 'approveClaim', { claimId })
   expect(res.success).toBe(true)
   expect(res.data).toMatchObject({ outcome: 'approved', claimId, shiftId })
 
-  const snap = await snapshot(workerC, shiftId)
+  const snap = await snapshot(workerE, shiftId)
   expect(snap.state).toBe('covered')
-  expect(snap.claim).toMatchObject({ claimId, claimantId: workerC.id })
+  expect(snap.claim).toMatchObject({ claimId, claimantId: workerE.id })
   expect(snap.decisions).toHaveLength(1)
-  expect(snap.decisions[0]).toMatchObject({ claimId, outcome: 'approved', actorId: manager.id, claimantId: workerC.id })
+  expect(snap.decisions[0]).toMatchObject({ claimId, outcome: 'approved', actorId: manager.id, claimantId: workerE.id })
 })
 
 test('6. release and approve fired concurrently leave exactly one decision', async ({ users }, testInfo) => {
   // Rotate poster and claimant across repeats so no one nears the post/claim
   // caps (a released shift reopens and counts toward its poster's open cap).
   const even = testInfo.repeatEachIndex % 2 === 0
-  const [posterName, claimantName] = even ? ['Spike A', 'Worker B'] : ['Worker B', 'Worker C']
+  const [posterName, claimantName] = even ? ['Spike A', 'Worker D'] : ['Worker D', 'Worker E']
   const [p, w, m] = await users([posterName, claimantName, 'Manager M'])
   const poster = await member(p.context.request)
   const claimant = await member(w.context.request)
