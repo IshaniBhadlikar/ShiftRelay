@@ -335,6 +335,53 @@ type in `worker.d.ts` ~L3529)
 - Claim-cap note: demo shifts start 14+ days out, so a test claim on demo-shift-1 counts toward that worker's
   24h claim cap until a re-seed deletes it; test 4 ends with a re-seed.
 
+### Nov 23 — UI: board, post, activity, queue, settings, landing
+**What I did**
+- `npm test` now runs `deepspace test run all --secrets-config localtest` (every spec + unit).
+- `src/lib/shift-state.ts`: the ONE pure `deriveShiftState(hasClaim, outcome)` + `buildBoard()`. Server
+  `getShiftStatus` (src/actions/lib.ts) and the client board both use it. Unit tests: `shift-state.test.ts`.
+- Design (docs.deep.space Design section): own `relay` theme (warm paper, graphite, deep-green "stamp" accent,
+  ochre for Claimed; tokens only, no colors in JSX), IBM Plex Sans + Plex Mono (times only). Design Direction
+  block in `src/pages/index.tsx`; `home pattern:` line in home.tsx. Anti-AI grep gate + product-polish gate clean
+  (only hit: "React #310" in a scaffold comment).
+- `TeamProvider` (src/lib/team.tsx): reads the caller's `team_members` row live; if missing, calls `joinTeam`
+  once per user id. Nav shows Queue only to managers (cosmetic).
+- Pages: Board `/home` (live, grouped by day, Claim/Release, demo tag, faded in-progress), Post `/post` (inline
+  validation, local datetime → `toISOString()`, live preview), My activity `/activity`, Queue `/queue` (managers;
+  Approve / Reject with confirm; hidden on own claim; last 10 decisions), Settings (invite-code box, team role),
+  Landing `/` (pitch + static three-station slip mockup; fixed time labels so the prerender matches every zone).
+- All writes via `src/lib/actions.ts` → existing actions. Errors shown verbatim; buttons disabled in flight.
+- Tests: `collab.spec.ts` three-browser live test (Worker C posts, Worker B claims in the UI, Manager M approves on
+  /queue in the UI; C and B see "Claimed by Worker B" then "Covered by Worker B"; a window marker proves no
+  reloads). `smoke.spec.ts`: landing shows the real headline, no template copy.
+
+**Assumptions**
+- `'own'` read of team_members works for action-created rows: SDK stamps `_created_by` with the action caller
+  (src/server/action-routes.ts sends X-User-Id = ctx.userId). Confirmed in a browser before building on it.
+- Board = shifts that haven't ENDED (in-progress ones stay, faded, without Claim).
+- Decision actor names come from `useUsers()` (public roster: id + name); no schema change.
+- Live test poster is Worker C (not Spike A, as planned): Spike A posts in most specs and could briefly hit its
+  3-open-shifts cap when files run in parallel. Test shift starts in 30s to leave the claim cap quickly.
+
+**Incident (local data only) — fixed**
+- First full run: 4 Outsider tests failed. Cause: the scaffold collab test used `users(2)`, which picks the two
+  OLDEST pool accounts (Spike A, Outsider), opened `/home`, and the new auto-join made Outsider a member; a later
+  invites test then let Outsider redeem `test-unused` and become manager.
+- Fix: every collab test now requests accounts by name (header explains why). Local repair via the dev server's
+  local explorer SQL (not code): deleted exactly Outsider's `c_team_members` row and the `test-unused`
+  `c_invite_redemptions` row (by row id, after SELECTing them). Rerun: 0 Outsider joinTeam calls.
+
+**Verified**
+- Full suite `npm test -- --port 5180`: **37/37 Playwright + 10/10 unit**. Live test `--repeat-each=3`: 3/3.
+- Running the live test back-to-back 8 times hits Worker B's 5-claims/day soft cap (by design) — the test then
+  fails with the server's own message ("You've reached the limit of 5 claims per day."), not a silent "Open".
+- `vite build`: prerender OK; dev-only names absent from worker and client bundles.
+
+**What you should verify**
+- Click through post → activity → queue → settings → landing on localhost (owner account; redeem a local invite
+  to see the queue as manager).
+- If you ever run specs with unnamed `users(n)` again, Outsider can be auto-joined — keep accounts named.
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
@@ -350,6 +397,9 @@ type in `worker.d.ts` ~L3529)
   Writes are unaffected: every write is an action that checks `team_members` itself.
 
 ## Later (out of scope)
+- UI loads ALL decisions (unfiltered useQuery) so an old approval can't be dropped by a limit; fine for one
+  workplace, revisit (server-side per-shift state or paging) if the audit grows to thousands of rows.
+- Suggested features (not built): "Your shift" filter on the board; per-day "who's covering" summary for managers.
 - Before submission: owner clicks Settings → Reset demo data on the live site and checks the demo state.
 - Reset demo data right before submitting.
 - README fallback: if demo shifts have passed, post your own shift from a second account.
