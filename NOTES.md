@@ -335,6 +335,9 @@ type in `worker.d.ts` ~L3529)
 - Claim-cap note: demo shifts start 14+ days out, so a test claim on demo-shift-1 counts toward that worker's
   24h claim cap until a re-seed deletes it; test 4 ends with a re-seed.
 
+## What I verified
+- Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
+
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
   (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
