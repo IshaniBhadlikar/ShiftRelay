@@ -13,10 +13,12 @@ export interface NavItem {
   label: string
   roles?: Role[]
   devOnly?: boolean
+  /** Shown only to team managers (team_members.role). Cosmetic — actions enforce. */
+  managerOnly?: boolean
 }
 
 export const nav: NavItem[] = [
-  { path: '/home', label: 'Home' },
+  { path: '/home', label: 'Board' },
   { path: '/settings', label: 'Settings' },
   // The /api-status debug page still exists — add
   // `{ path: '/api-status', label: 'API Status', devOnly: true }` to surface it.

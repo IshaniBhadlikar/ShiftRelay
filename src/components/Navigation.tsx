@@ -16,6 +16,7 @@ import { APP_NAME } from '../constants'
 import type { Role } from '../constants'
 import { nav } from '../nav'
 import { cn } from '../lib/utils'
+import { useTeam } from '../lib/team'
 import {
   Avatar,
   AvatarFallback,
@@ -33,6 +34,8 @@ export default function Navigation() {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const team = useTeam()
+  const isManager = team.status === 'ready' && team.isManager
 
   const profileReady = !isSignedIn || (!userLoading && !!user)
   const userRole = (user?.role ?? 'anonymous') as Role | 'anonymous'
@@ -44,6 +47,7 @@ export default function Navigation() {
 
   const visibleNav = nav.filter((item) => {
     if (item.devOnly && !import.meta.env.DEV) return false
+    if (item.managerOnly && !isManager) return false
     if (!item.roles) return true
     if (!profileReady) return false
     if (userRole === 'admin') return true
@@ -58,8 +62,10 @@ export default function Navigation() {
         to={item.path}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'px-3 py-1.5 text-sm',
-          active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+          'relative px-3 py-1.5 text-sm transition-colors',
+          active
+            ? 'font-medium text-foreground md:after:absolute md:after:inset-x-3 md:after:-bottom-[13px] md:after:h-0.5 md:after:bg-primary'
+            : 'text-muted-foreground hover:text-foreground',
         )}
       >
         {item.label}
@@ -70,14 +76,23 @@ export default function Navigation() {
   return (
     <>
       <nav data-testid="app-navigation" className="border-b border-border bg-background">
-        <div className="mx-auto flex h-12 max-w-7xl items-center gap-4 px-4">
-          <Link to="/home" className="text-sm font-semibold text-foreground">
+        <div className="mx-auto flex h-14 max-w-4xl items-center gap-4 px-4">
+          <Link to="/home" className="text-[15px] font-semibold tracking-tight text-foreground">
             {APP_NAME}
           </Link>
 
           <div className="hidden items-center md:flex">{visibleNav.map(navLink)}</div>
 
           <div className="flex-1" />
+
+          {isManager && (
+            <span
+              data-testid="nav-manager-marker"
+              className="hidden rounded-sm border border-covered px-1.5 py-px text-[11px] font-medium text-covered sm:inline"
+            >
+              Manager
+            </span>
+          )}
 
           {!isLoaded ? null : isSignedIn && !profileReady ? (
             /* Signed in, profile still loading — skeleton pill, never the

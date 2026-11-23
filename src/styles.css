@@ -51,6 +51,18 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
 
+  /* ShiftRelay shift-state tokens (values per theme in themes.css). Declared
+     here so Tailwind generates bg-claimed / text-covered / bg-covered-soft … */
+  --color-claimed: #d8a54a;
+  --color-claimed-soft: #2a2213;
+  --color-covered: #6fb39a;
+  --color-covered-soft: #13241e;
+
+  /* Type: IBM Plex Sans for the interface, IBM Plex Mono for time ranges
+     (the timecard). Loaded from Google Fonts in index.html. */
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
   /* Status colors — constant across all themes */
   --color-success: #10b981;
   --color-success-foreground: #ffffff;

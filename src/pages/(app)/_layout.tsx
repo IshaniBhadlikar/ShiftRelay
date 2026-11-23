@@ -23,6 +23,7 @@ import Navigation from '../../components/Navigation'
 import { useToast } from '@/components/ui'
 import { APP_NAME, SCOPE_ID } from '../../constants'
 import { schemas } from '../../schemas'
+import { TeamProvider } from '../../lib/team'
 
 export default function AppLayout() {
   return (
@@ -74,7 +75,8 @@ function AuthBoot({ children }: { children: ReactNode }) {
     >
       <RecordScope roomId={SCOPE_ID} schemas={schemas}>
         <AgentTools />
-        {children}
+        {/* Reads the caller's team_members row; calls joinTeam once if missing. */}
+        <TeamProvider>{children}</TeamProvider>
       </RecordScope>
     </RecordProvider>
   )
