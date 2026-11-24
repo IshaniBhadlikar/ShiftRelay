@@ -12,8 +12,8 @@ Use this for the submission's "what the agent did / what I verified" section.
   1. DONE (Nov 23): Gmail reverse test — delivered (see "What I verified (production)").
   2. DONE (Nov 23): the two-calls question — charge + settlement rows for one send (see log).
   3. DONE (Nov 23): README (add the screenshot at docs/board.png).
-  4. Submission note.
-  5. Tidy the "Later" section.
+  4. Submission note — drafted in chat (not in the repo), waiting on your edits.
+  5. DONE (Nov 23): tidied "Later" (grouped; done items removed, they live in the Log).
   6. Reset demo data (Settings → Reset demo data) right before submitting.
 
 ## Pre-build design review (Nov 22)
@@ -540,6 +540,13 @@ claim-email note). No invite codes, no personal emails, no secrets (grepped).
 above; the screenshot line points at `docs/board.png`, which doesn't exist yet (the image is broken until you add it).
 **Verify:** read it on GitHub; add `docs/board.png`; check the "I directed and decided" list matches your memory.
 
+### Nov 23 — screenshot, test-account line, "Later" tidied
+- `docs/board.png`: it wasn't on disk, so I copied the screenshot you attached in chat; removed the README placeholder comment.
+- README "Run locally": one line on creating the eight named test accounts (`npx deepspace test accounts create
+  … --password-stdin`) and the local invite fixtures (`scripts/new-invite.mjs --test-fixtures` → `localtest`).
+- "Later": grouped into before-submitting / product / email / scale / tests; removed DONE and duplicate lines.
+**Verify:** the screenshot shows your full name ("Claimed by Ishani Nirmal Bhadlikar") — fine to publish?
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
@@ -573,26 +580,33 @@ above; the screenshot line points at `docs/board.png`, which doesn't exist yet (
   Writes are unaffected: every write is an action that checks `team_members` itself.
 
 ## Later (out of scope)
-- UI loads ALL decisions (unfiltered useQuery) so an old approval can't be dropped by a limit; fine for one
-  workplace, revisit (server-side per-shift state or paging) if the audit grows to thousands of rows.
-- Suggested features (not built): "Your shift" filter on the board; per-day "who's covering" summary for managers.
-- Before submission: owner clicks Settings → Reset demo data on the live site and checks the demo state.
-- Reset demo data right before submitting.
-- README fallback: if demo shifts have passed, post your own shift from a second account.
-- DONE (Nov 23): Email (P1) skips demo-* recipients.
-- Email preferences / unsubscribe link; per-user opt-out (not built).
-- DONE (Nov 23): back-to-back test flake on the claim cap — per-spec claimant accounts (see log).
-- If the platform keeps ignoring `from`, recipients see "DeepSpace Apps" — consider the own-domain Resend route
-  (RESEND_API_KEY secret) for a branded sender.
-- Test invite fixtures: suffix fixture invite ids per generation (e.g. `test-mgr-m-<rand>`) so regenerating them re-exercises the fresh-redemption path (fixed ids always hit the retry path once redeemed).
-- Before submission, verify on the live site with a throwaway prd invite, then remove it.
-- DONE (Nov 23): reviewer invites generated and MANAGER_INVITES set in --config prd; expiry recorded above.
-- DONE (Nov 23): tests use the real invite path; devPromoteSelfToManager deleted.
-- claimShift daily cap is not atomic (concurrent claims can exceed it) — soft by design.
-- postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
-- Show email times in the recipient's time zone (emails use UTC today; would need a stored per-user zone).
-- Log each successful email send (user id + platform message id, never the address) so a delivery question can be
-  traced from the logs alone (not built; decided Nov 23).
+Done items were removed from this list; they're recorded in the Log above.
+
+**Before submitting (checklist, not features)**
+- Owner: Settings → Reset demo data on the live site, then check the board shows the pending demo claim.
+- Optional: verify a reviewer-style redemption on the live site with a throwaway prd invite, then remove that invite.
+
+**Product (suggested, not built)**
+- "Your shifts" filter on the board.
+- Per-day "who's covering" summary for managers.
+
+**Email**
+- Show email times in the recipient's time zone (UTC today; needs a stored per-user zone).
+- Email preferences: unsubscribe link and per-user opt-out (managers currently get every claim email).
+- Log each successful send (user id + platform message id, never the address), so a delivery question can be traced
+  from the logs alone (decided Nov 23: not built).
+- Branded sender: the platform ignores `from` (mail comes from "DeepSpace Apps"); the own-domain Resend route
+  (RESEND_API_KEY secret) would fix that.
+
+**Scale and limits**
+- The UI loads ALL decisions (unfiltered `useQuery`) so an old approval can't be dropped by a limit. Fine for one
+  workplace; revisit (server-side per-shift state or paging) if the audit grows to thousands of rows.
+- The soft caps aren't atomic: concurrent claims can exceed the 5/day cap, and concurrent posts the 3-open-shifts
+  cap. Soft by design.
+
+**Tests**
+- Suffix test invite ids per generation (e.g. `test-mgr-m-<rand>`) so regenerating fixtures re-exercises the
+  fresh-redemption path (fixed ids always hit the retry path once redeemed).
 
 ## Report to DeepSpace
 - The CLI's .dev.vars writer escapes quotes and dotenv keeps the backslashes, which breaks JSON secrets locally

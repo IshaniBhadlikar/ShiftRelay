@@ -5,7 +5,6 @@ ShiftRelay records the handoff. It does not change any official schedule.
 
 **Live:** https://shiftrelay.app.space · Built on the DeepSpace SDK.
 
-<!-- Screenshot placeholder: add docs/board.png -->
 ![The ShiftRelay board](docs/board.png)
 
 ## Try it in 5 minutes
@@ -132,5 +131,7 @@ npm run dev                                # local dev server; email is dry-run 
 npm test                                   # all Playwright specs + unit tests (needs DeepSpace test accounts)
 npm run build && npm run check:bundle      # production build + check that dev-only code is stripped
 ```
+
+**Test accounts for `npm test`:** the specs look accounts up by name, so create eight on your own DeepSpace account named `Spike A`, `Outsider`, `Worker B`…`Worker F` and `Manager M` with `npx deepspace test accounts create --email <any>@deepspace.test --name "<name>" --password-stdin`, then generate local test invites with `node scripts/new-invite.mjs --test-fixtures | npx deepspace secrets set MANAGER_INVITES --stdin --config localtest`.
 
 Secrets are set with `npx deepspace secrets`; none are in the repo.
