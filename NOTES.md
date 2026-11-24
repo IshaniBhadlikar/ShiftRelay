@@ -5,15 +5,13 @@ Use this for the submission's "what the agent did / what I verified" section.
 ## Where we are (Nov 23, end of session)
 - **Deployed:** https://shiftrelay.app.space — release #4 (`rel_01M851VVNAXFT2NNS5JKXVN38D`, commit `b7a5d6b`),
   with email notifications. GitHub `origin` (IshaniBhadlikar/ShiftRelay, private) is in sync with `main`.
-- **Real-email check: PENDING.** One claim at 5:17 PM ("calls", claimed by "I", posted by me) shows TWO
-  `email/send` calls on the dashboard, both "Completed" — one $0.013, one $0.0000. No email reached my USC inbox.
-  Findings so far (no code changed): notify picked 1 recipient (me, `EeTWCKhy…`: poster + only manager, de-duplicated;
-  claimant excluded); the app made exactly one `email/send` request (one claimShift in the logs, no SDK retry, no
-  `[email] … failed` lines); my `users` row email is the USC address.
+- **Real-email check: PENDING (delivery only).** The 5:17 PM PST claim (01:17 UTC; "calls", claimed by "I", posted
+  by me) made exactly ONE `email/send`, to 1 recipient (me, `EeTWCKhy…`), and it succeeded. The two dashboard rows
+  are one charge ($0.013) + its $0 settlement, not two sends (see log "two email/send rows explained").
+  No email reached my USC inbox → next: Gmail reverse test (USC filtering vs. platform delivery).
 - **Remaining:**
   1. Gmail reverse test — have the email go to a Gmail address to tell a USC filtering problem from a sending one.
-  2. The two-calls question — compare the two dashboard entries; if every single-recipient send shows $0.013 + $0,
-     add it to "Report to DeepSpace". (Proposed, not done: log each successful send with user id + message id.)
+  2. DONE (Nov 23): the two-calls question — charge + settlement rows for one send (see log).
   3. README.
   4. Submission note.
   5. Tidy the "Later" section.
@@ -511,6 +509,30 @@ claims/decisions/demo. Production limits and app code unchanged; no waits added.
 **Verified:** `npm test` 3× back-to-back: 43/43 Playwright + 31/31 unit each, 0 cap hits. Highest counted claims
 (limit 5): Worker B 3, Spike A 3, Worker D 2, Worker E 2, Worker F 2, Worker C 1, Manager M 1.
 
+### Nov 23 — two email/send rows explained (investigation only, no code change, no deploy)
+**Question:** the dashboard showed two `email/send` calls at 5:17 PM PST, both "Completed", $0.013 and $0.0000;
+I expected one recipient and got no email.
+**Findings**
+- Production logs: one `claimShift` by `ITK8Opt5…` ("I") at 01:17:39.145 UTC → 200. Poster `EeTWCKhy…` (me) posted
+  "calls" at 01:16:29; postShift never emails.
+- Recipients: notify picked 1 — `EeTWCKhy…` (poster + only manager in `team_members`, de-duplicated; claimant
+  excluded). Cross-checked by counting the action's record calls (`/api/tools/execute`): 10 before the send
+  (member, shift, state, 2 cap queries, 1 cap shift read for "I"'s earlier released claim on "front desk",
+  create, notify's shift read, managers query, ONE users read) and 1 after (read back the claim). 2 recipients
+  would have been 11 before.
+- The send: the 1.18 s gap (01:17:39.549 → 01:17:40.728) is the single `email/send` (service binding to the
+  api-worker, not an `/api/tools/execute` line). SDK `callIntegration` = one fetch, no retry.
+- Result: success — notify logs every failure and there are no `[email]` or error lines. (Successful sends are not
+  logged, so there is no message id.)
+- No other email-capable event: email went live with release #3 (20:24 UTC); "I"'s release on "front desk" was
+  19:42 UTC on release #2 (no email code).
+- `npx deepspace app usage --json`: `usageByIntegration` email `count: 1`, total $0.013; `recentUsage` has two
+  rows for 01:17:40, `entryType: "charge"` $0.013 completed and `entryType: "settlement"` $0 completed.
+**Conclusion:** one request, one recipient, one charge. The $0 row is the billing settlement of the same send —
+not a failure, duplicate or second recipient. Non-delivery happened after the platform accepted the send (likely
+USC junk/quarantine for `notifications@updates.app.space`); Gmail reverse test pending.
+**Verify:** dashboard rows match the charge/settlement pair; Gmail test result.
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
@@ -557,6 +579,8 @@ claims/decisions/demo. Production limits and app code unchanged; no waits added.
 - DONE (Nov 23): tests use the real invite path; devPromoteSelfToManager deleted.
 - claimShift daily cap is not atomic (concurrent claims can exceed it) — soft by design.
 - postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
+- Log each successful email send (user id + platform message id, never the address) so a delivery question can be
+  traced from the logs alone (not built; decided Nov 23).
 
 ## Report to DeepSpace
 - The CLI's .dev.vars writer escapes quotes and dotenv keeps the backslashes, which breaks JSON secrets locally
@@ -567,3 +591,6 @@ claims/decisions/demo. Production limits and app code unchanged; no waits added.
   DeepSpace Apps <notifications@updates.app.space>. Any from value is ignored; use reply_to for replies." One of
   them is out of date. We send `ShiftRelay <shiftrelay@app.space>`; the first real production email will show
   which is true.
+- Usage dashboard: one `email/send` request appears as TWO "Completed" rows at the same time — a `charge`
+  ($0.013) and a `settlement` ($0) (`npx deepspace app usage --json`, `recentUsage[].entryType`; the summary
+  correctly says count 1). Looks like two sends; label the entry type or hide $0 settlements.
