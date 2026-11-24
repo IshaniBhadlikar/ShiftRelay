@@ -2,6 +2,23 @@
 
 Use this for the submission's "what the agent did / what I verified" section.
 
+## Where we are (Nov 23, end of session)
+- **Deployed:** https://shiftrelay.app.space — release #4 (`rel_01M851VVNAXFT2NNS5JKXVN38D`, commit `b7a5d6b`),
+  with email notifications. GitHub `origin` (IshaniBhadlikar/ShiftRelay, private) is in sync with `main`.
+- **Real-email check: PENDING.** One claim at 5:17 PM ("calls", claimed by "I", posted by me) shows TWO
+  `email/send` calls on the dashboard, both "Completed" — one $0.013, one $0.0000. No email reached my USC inbox.
+  Findings so far (no code changed): notify picked 1 recipient (me, `EeTWCKhy…`: poster + only manager, de-duplicated;
+  claimant excluded); the app made exactly one `email/send` request (one claimShift in the logs, no SDK retry, no
+  `[email] … failed` lines); my `users` row email is the USC address.
+- **Remaining:**
+  1. Gmail reverse test — have the email go to a Gmail address to tell a USC filtering problem from a sending one.
+  2. The two-calls question — compare the two dashboard entries; if every single-recipient send shows $0.013 + $0,
+     add it to "Report to DeepSpace". (Proposed, not done: log each successful send with user id + message id.)
+  3. README.
+  4. Submission note.
+  5. Tidy the "Later" section.
+  6. Reset demo data (Settings → Reset demo data) right before submitting.
+
 ## Pre-build design review (Nov 22)
 - Started from my ShiftRelay pitch (post → claim → approve).
 - Used two AI assistants (Claude, ChatGPT) to critique each other's designs.
