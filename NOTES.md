@@ -547,6 +547,12 @@ above; the screenshot line points at `docs/board.png`, which doesn't exist yet (
 - "Later": grouped into before-submitting / product / email / scale / tests; removed DONE and duplicate lines.
 **Verify:** the screenshot shows your full name ("Claimed by Ishani Nirmal Bhadlikar") — fine to publish?
 
+### Nov 23 — README wording fixes
+- Read-access tradeoff reworded in README + NOTES "Tradeoffs": deliberate single-workplace simplification, membership
+  required for writes, team-scoped reads (`'team'` + `teamField`, confirmed in SDK worker.js `checkPermissionLevel`) deferred.
+- Heading → "DeepSpace features and integrations" (platform features vs. the `email/send` integration); "What the tests
+  prove" → "cover"; dropped "so they can't drift"; demo step 5 approval wording.
+
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
 - Nov 23 — Board checkpoint, clicked through locally with my own (never-joined) account: auto-join
@@ -574,10 +580,11 @@ above; the screenshot line points at `docs/board.png`, which doesn't exist yet (
   and was charged — most likely university mail filtering, not the app.
 
 ## Tradeoffs (for the writeup)
-- **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
-  (viewer/member/admin), not `team_members`, so it can't restrict reads to team members. Accepted because
-  any signed-in user may join anyway; the alternative (all reads via actions) costs realtime `useQuery`.
-  Writes are unaffected: every write is an action that checks `team_members` itself.
+- **Reads are open to signed-in users** — a deliberate simplification for this single-workplace demo. Any signed-in
+  user can read shifts/claims/decisions (even before `joinTeam`); membership is required for every write (each action
+  checks `team_members`). Team-scoped reads were deferred: the SDK's `'team'` permission level with a `teamField`
+  (records readable by members of a platform team, `ctx.isTeamMember`) would need platform-team membership kept in
+  step with `team_members`. (Corrected Nov 23: an earlier version said RBAC couldn't restrict reads to the team.)
 
 ## Later (out of scope)
 Done items were removed from this list; they're recorded in the Log above.

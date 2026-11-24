@@ -18,7 +18,7 @@ ShiftRelay records the handoff. It does not change any official schedule.
    - Post a shift from one account and claim it from the other.
    - Approve the claim as the manager.
    - Both boards update without a reload.
-   - A manager can never decide their own claim, so the manager must be the poster, not the claimant.
+   - For approval, have the manager post the shift and a different account claim it; the approver can't be the claimant.
 
 **If the demo shifts have passed:** post your own shift and run step 5. Demo shifts start 14+ days after each reset,
 so this should only happen if the demo data hasn't been reset in a while.
@@ -38,14 +38,14 @@ that takes the actor from the session (never from the request) and does its own 
 
 **Shift state is derived, never stored.** No claim means the shift is *open*. A claim with no decision means *claimed*.
 An approved claim means *covered*. A rejected or released claim means *open* again. Client and server use the same
-derivation function, so they can't drift.
+derivation function.
 
 **Race safety, in plain words.** Two people acting at the same moment don't both win. The data store itself refuses
 a second claim on a shift, or a second decision on a claim. The action that writes first wins; only that action
 continues and sends email. The others get a clear message such as "Someone already claimed this shift." Nothing
 depends on check-then-write timing.
 
-**What the tests prove** (Playwright with real signed-in users, plus unit tests):
+**What the tests cover** (Playwright with real signed-in users, plus unit tests):
 - **Double claim:** two users claim the same shift concurrently → exactly 1 succeeds. It passed 20/20 repeated runs with no
   double wins. In an early spike, 5 concurrent creates produced 1 success and 4 duplicates.
 - **Decision race:** release and approve fired concurrently → exactly 1 decision, and both users see the same state.
@@ -55,17 +55,21 @@ depends on check-then-write timing.
 **Manager invites** are stored as hashes in a DeepSpace secret and compared in constant time. They expire, and each
 can be used once. A retry by the same person finishes the grant instead of failing.
 
-## DeepSpace features used, and why
+## DeepSpace features and integrations
 
-- **Sign-in.** Accounts come from the platform; the app keeps only its own team role per user.
+**Platform features**
+- **Auth.** Accounts and sign-in come from the platform; the app keeps only its own team role per user.
 - **Records + live `useQuery`.** Every board, queue and activity view updates in real time, with no polling code.
 - **Server actions + `uniqueOn`.** All writes go through actions, and the uniqueness constraints are the race
   safety described above.
+- **Permissions.** Every collection blocks client writes; signed-in users can read (see Main tradeoffs).
 - **Secrets.** These hold the manager invite hashes. No secret is in the repo or the client bundle.
-- **`email/send`.** Claims notify the poster and managers; approvals and rejections notify the claimant and poster;
-  a release notifies the poster. Demo coworkers and the person acting aren't emailed. Only the winning
-  action sends, and an email failure never undoes the state change. It's billed to the app owner. Tests run in dry-run mode,
-  so they send no real email.
+
+**Integration: `email/send`**
+- Claims notify the poster and managers; approvals and rejections notify the claimant and poster; a release
+  notifies the poster. Demo coworkers and the person acting aren't emailed.
+- Only the winning action sends, and an email failure never undoes the state change.
+- It's billed to the app owner. Tests run in dry-run mode, so they send no real email.
 
 **Skipped, and why**
 - **Messaging:** it's public-only, which is wrong for a team, and chat is out of scope anyway.
@@ -77,10 +81,9 @@ can be used once. A retry by the same person finishes the grant instead of faili
 
 1. **Depth over breadth.** One handoff flow, made reliable under races, permissions and failures. Cancelling a
    shift, overlap checks, chat, multiple teams, cron reminders and AI were left out deliberately.
-2. **Reads are open to any signed-in user**, even before joining. Platform permissions only see the platform role,
-   not the app's team roles, so they can't restrict reads to team members. This is accepted because anyone signed
-   in can join anyway. The alternative (all reads through actions) would lose the real-time views. Writes are
-   unaffected: every write is checked in its action.
+2. **Reads are open to signed-in users.** This is a deliberate simplification for a single-workplace demo:
+   any signed-in user can read the board, and team membership is required for every write (each action checks
+   `team_members`). Team-scoped reads (the `'team'` permission level with a `teamField`) were deferred.
 
 ## Who did what
 
