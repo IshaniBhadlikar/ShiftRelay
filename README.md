@@ -42,8 +42,9 @@ derivation function.
 
 **Race safety, in plain words.** Two people acting at the same moment don't both win. The data store itself refuses
 a second claim on a shift, or a second decision on a claim. The action that writes first wins; only that action
-continues and sends email. The others get a clear message such as "Someone already claimed this shift." Nothing
-depends on check-then-write timing.
+continues and sends email. The others get a clear message such as "Someone already claimed this shift." Unique
+constraints choose a single winner for simultaneous claims and decisions. Other limits, such as the soft caps, are
+best-effort.
 
 **What the tests cover** (Playwright with real signed-in users, plus unit tests):
 - **Double claim:** two users claim the same shift concurrently → exactly 1 succeeds. It passed 20/20 repeated runs with no
@@ -115,8 +116,8 @@ before any code. The full log is in [NOTES.md](NOTES.md).
 ## Known issues and next steps
 
 - **Emails show times in UTC**, and arrive from "DeepSpace Apps <notifications@updates.app.space>". The platform
-  ignores the app's sender. Some university mail filters drop them: the send succeeded and was charged, but the
-  message never arrived.
+  ignores the app's sender. One test message to a university inbox did not arrive, although the send reported
+  success and was charged.
 - **Reviewers who become managers get claim emails** for every claim, since all managers are notified.
 - **The soft caps aren't atomic** (3 open shifts per poster, 5 claims per user per day). Concurrent requests can
   slightly exceed them, which is fine for abuse limits.
