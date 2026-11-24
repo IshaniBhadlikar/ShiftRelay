@@ -5,12 +5,11 @@ Use this for the submission's "what the agent did / what I verified" section.
 ## Where we are (Nov 23, end of session)
 - **Deployed:** https://shiftrelay.app.space — release #4 (`rel_01M851VVNAXFT2NNS5JKXVN38D`, commit `b7a5d6b`),
   with email notifications. GitHub `origin` (IshaniBhadlikar/ShiftRelay, private) is in sync with `main`.
-- **Real-email check: PENDING (delivery only).** The 5:17 PM PST claim (01:17 UTC; "calls", claimed by "I", posted
-  by me) made exactly ONE `email/send`, to 1 recipient (me, `EeTWCKhy…`), and it succeeded. The two dashboard rows
-  are one charge ($0.013) + its $0 settlement, not two sends (see log "two email/send rows explained").
-  No email reached my USC inbox → next: Gmail reverse test (USC filtering vs. platform delivery).
+- **Real-email check: PASSED (Nov 23).** A claim notification reached Gmail within seconds, from "DeepSpace Apps
+  <notifications@updates.app.space>"; body, UTC time and link correct. The USC copy never arrived (send succeeded and
+  was charged → most likely university filtering). The two dashboard rows per send are a charge + its $0 settlement.
 - **Remaining:**
-  1. Gmail reverse test — have the email go to a Gmail address to tell a USC filtering problem from a sending one.
+  1. DONE (Nov 23): Gmail reverse test — delivered (see "What I verified (production)").
   2. DONE (Nov 23): the two-calls question — charge + settlement rows for one send (see log).
   3. README.
   4. Submission note.
@@ -554,6 +553,10 @@ USC junk/quarantine for `notifications@updates.app.space`); Gmail reverse test p
     confirm dialog) updated both windows.
   - Reusing the owner code from the second account → "This invite has already been used."
   - Reset demo data at the end, so reviewers find the pending demo claim.
+- Nov 23 — Real email on https://shiftrelay.app.space (release #4, commit b7a5d6b): a claim notification reached my
+  Gmail within seconds, from "DeepSpace Apps <notifications@updates.app.space>" (our `from` was ignored). Body and
+  UTC time were correct; the board link works. The copy to my USC address never arrived although the send succeeded
+  and was charged — most likely university mail filtering, not the app.
 
 ## Tradeoffs (for the writeup)
 - **Reads are open to any signed-in user**, even before `joinTeam`. RBAC only sees the platform role
@@ -579,6 +582,7 @@ USC junk/quarantine for `notifications@updates.app.space`); Gmail reverse test p
 - DONE (Nov 23): tests use the real invite path; devPromoteSelfToManager deleted.
 - claimShift daily cap is not atomic (concurrent claims can exceed it) — soft by design.
 - postShift soft cap is not atomic (two concurrent posts can both pass) — soft by design.
+- Show email times in the recipient's time zone (emails use UTC today; would need a stored per-user zone).
 - Log each successful email send (user id + platform message id, never the address) so a delivery question can be
   traced from the logs alone (not built; decided Nov 23).
 
@@ -587,10 +591,10 @@ USC junk/quarantine for `notifications@updates.app.space`); Gmail reverse test p
   (worked around with base64 for MANAGER_INVITES).
 - `email/send` sender: the docs (guides/external-apis "Sending email"; agents/cron-every-monday-morning-weekly-
   reminder) say to send from `<app-name>@app.space` and that other senders are rejected, but the live catalog
-  (`npx deepspace integrations info email/send`, CLI 0.44.2, Nov 23) says "Send a transactional email from
-  DeepSpace Apps <notifications@updates.app.space>. Any from value is ignored; use reply_to for replies." One of
-  them is out of date. We send `ShiftRelay <shiftrelay@app.space>`; the first real production email will show
-  which is true.
+  (`npx deepspace integrations info email/send`, CLI 0.44.2) says "Any from value is ignored" and mail comes from
+  "DeepSpace Apps <notifications@updates.app.space>". **Confirmed Nov 23: the catalog is right, the docs are wrong** —
+  we sent `from: ShiftRelay <shiftrelay@app.space>` and the delivered email came from DeepSpace Apps
+  <notifications@updates.app.space>. Please update the docs.
 - Usage dashboard: one `email/send` request appears as TWO "Completed" rows at the same time — a `charge`
   ($0.013) and a `settlement` ($0) (`npx deepspace app usage --json`, `recentUsage[].entryType`; the summary
   correctly says count 1). Looks like two sends; label the entry type or hide $0 settlements.
