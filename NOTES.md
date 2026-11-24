@@ -11,7 +11,7 @@ Use this for the submission's "what the agent did / what I verified" section.
 - **Remaining:**
   1. DONE (Nov 23): Gmail reverse test — delivered (see "What I verified (production)").
   2. DONE (Nov 23): the two-calls question — charge + settlement rows for one send (see log).
-  3. README.
+  3. DONE (Nov 23): README (add the screenshot at docs/board.png).
   4. Submission note.
   5. Tidy the "Later" section.
   6. Reset demo data (Settings → Reset demo data) right before submitting.
@@ -531,6 +531,14 @@ I expected one recipient and got no email.
 not a failure, duplicate or second recipient. Non-delivery happened after the platform accepted the send (likely
 USC junk/quarantine for `notifications@updates.app.space`); Gmail reverse test pending.
 **Verify:** dashboard rows match the charge/settlement pair; Gmail test result.
+
+### Nov 23 — README
+**What I did:** wrote README.md for reviewers with ~10 minutes, from the approved outline plus your changes (scope
+tradeoff first; "who did what" split into directed / verified by hand / agent; no Google/Composio line; manager
+claim-email note). No invite codes, no personal emails, no secrets (grepped).
+**Assumed:** Node range copied from `engines` in package.json; "20/20 repeated runs" is the claims.spec repeat run
+above; the screenshot line points at `docs/board.png`, which doesn't exist yet (the image is broken until you add it).
+**Verify:** read it on GitHub; add `docs/board.png`; check the "I directed and decided" list matches your memory.
 
 ## What I verified
 - Nov 23 — Clicked Reset demo data on Settings as the owner, locally: 'Demo data ready.' This confirms the owner-success path the automated tests can't reach.
